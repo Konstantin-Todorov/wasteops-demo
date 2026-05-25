@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <!-- Green ring — nearly complete circle, gap at bottom-left -->
+  <path d="M 118 458 A 222 222 0 1 1 82 393"
+    fill="none" stroke="#2DD36F" stroke-width="70" stroke-linecap="round"/>
+
+  <!-- Arrow tip — solid triangle pointing NE -->
+  <polygon fill="#0D4F6A" points="414,88 346,198 462,152"/>
+
+  <!-- Upper tail — thin elongated strip going SW -->
+  <polygon fill="#0D4F6A" points="340,194 325,176 98,382 113,400"/>
+
+  <!-- Lower tail — parallel strip with gap between -->
+  <polygon fill="#0D4F6A" points="368,212 353,194 126,400 141,418"/>
+</svg>

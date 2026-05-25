@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  DISPATCHER
+  DRIVER
+  ACCOUNTANT
+  CORPORATE_CLIENT
+  INDIVIDUAL_CLIENT
+}
+
+enum ClientType {
+  CORPORATE
+  INDIVIDUAL
+}
+
+enum ContainerStatus {
+  AVAILABLE
+  DEPLOYED
+  IN_TRANSIT
+  AT_DISPOSAL
+  MAINTENANCE
+}
+
+enum TruckStatus {
+  AVAILABLE
+  ON_ROUTE
+  MAINTENANCE
+}
+
+enum OrderType {
+  CONTAINER
+  GARBAGE_TRUCK
+}
+
+enum OrderStatus {
+  PENDING_ADMIN
+  CONFIRMED
+  DELIVERY_SCHEDULED
+  CONTAINER_DELIVERED
+  AWAITING_FILL
+  PICKUP_SCHEDULED
+  SCHEDULED
+  IN_TRANSIT
+  AT_DISPOSAL
+  PENDING_VERIFICATION
+  COMPLETED
+  CANCELLED
+}
+
+enum StopType {
+  DELIVERY
+  PICKUP
+  LOAD
+  UNLOAD
+}
+
+enum StopStatus {
+  PENDING
+  ARRIVED
+  COMPLETED
+  ISSUE_REPORTED
+}
+
+enum TripStatus {
+  PLANNED
+  IN_PROGRESS
+  AT_DISPOSAL
+  PENDING_VERIFICATION
+  COMPLETED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole
+  clientId     String?  @map("client_id")
+  client       Client?  @relation(fields: [clientId], references: [id])
+  truck        Truck?
+  hourlyRate   Float?   @map("hourly_rate")
+  phone        String?
+  orderEvents  OrderEvent[]
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model Client {
+  id           String     @id @default(uuid())
+  type         ClientType
+  name         String
+  taxId        String?    @map("tax_id")
+  address      String
+  lat          Float
+  lng          Float
+  contactName  String?    @map("contact_name")
+  contactPhone String?    @map("contact_phone")
+  email        String?
+  notes        String?
+  orders       Order[]
+  users        User[]
+  invoices     Invoice[]
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@map("clients")
+}
+
+model DisposalSite {
+  id         String   @id @default(uuid())
+  name       String
+  address    String
+  lat        Float
+  lng        Float
+  radiusM    Int      @default(300) @map("radius_m")
+  wasteTypes String[] @map("waste_types")
+  active     Boolean  @default(true)
+  trips      Trip[]
+
+  @@map("disposal_sites")
+}
+
+model ContainerType {
+  id          String      @id @default(uuid())
+  code        String      @unique
+  name        String
+  volumeM3    Float       @map("volume_m3")
+  maxWeightKg Int         @map("max_weight_kg")
+  description String?
+  containers  Container[]
+  orders      Order[]
+
+  @@map("container_types")
+}
+
+model Container {
+  id              String          @id @default(uuid())
+  code            String          @unique
+  qrCode          String          @unique @map("qr_code")
+  containerTypeId String          @map("container_type_id")
+  containerType   ContainerType   @relation(fields: [containerTypeId], references: [id])
+  status          ContainerStatus @default(AVAILABLE)
+  currentLat      Float?          @map("current_lat")
+  currentLng      Float?          @map("current_lng")
+  currentOrderId  String?         @unique @map("current_order_id")
+  order           Order?          @relation(fields: [currentOrderId], references: [id])
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  @@map("containers")
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  clientId        String      @map("client_id")
+  client          Client      @relation(fields: [clientId], references: [id])
+  orderType       OrderType   @map("order_type")
+  wasteType       String      @map("waste_type")
+  volumeM3        Float?      @map("volume_m3")
+  estimatedKg     Int?        @map("estimated_kg")
+  containerTypeId String?     @map("container_type_id")
+  containerType   ContainerType? @relation(fields: [containerTypeId], references: [id])
+  containerId     String?     @unique @map("container_id")
+  container       Container?
+  address         String
+  lat             Float
+  lng             Float
+  requestedDate   DateTime    @map("requested_date")
+  timeWindowStart DateTime?   @map("time_window_start")
+  timeWindowEnd   DateTime?   @map("time_window_end")
+  status          OrderStatus @default(PENDING_ADMIN)
+  notes           String?
+  paymentMethod   String?     @map("payment_method")
+  sourceChannel   String?     @map("source_channel")
+  events          OrderEvent[]
+  stops           TripStop[]
+  invoices        Invoice[]
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  @@map("orders")
+}
+
+model OrderEvent {
+  id        String   @id @default(uuid())
+  orderId   String   @map("order_id")
+  order     Order    @relation(fields: [orderId], references: [id])
+  eventType String   @map("event_type")
+  userId    String?  @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id])
+  lat       Float?
+  lng       Float?
+  notes     String?
+  photos    String[]
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("order_events")
+}
+
+model Truck {
+  id           String      @id @default(uuid())
+  plate        String      @unique
+  model        String
+  year         Int?
+  capacityM3   Float       @map("capacity_m3")
+  capacityKg   Int         @map("capacity_kg")
+  status       TruckStatus @default(AVAILABLE)
+  color        String      @default("#3B82F6")
+  fuelType     String?     @map("fuel_type")
+  fuelL100     Float?      @map("fuel_l100")
+  mileageKm    Int?        @map("mileage_km")
+  gtpDate      DateTime?   @map("gtp_date")
+  civilDate    DateTime?   @map("civil_date")
+  vignetteDate DateTime?   @map("vignette_date")
+  vignetteUrl  String?     @map("vignette_url")
+  notes        String?
+  driverId     String?     @unique @map("driver_id")
+  driver       User?       @relation(fields: [driverId], references: [id])
+  trips        Trip[]
+
+  @@map("trucks")
+}
+
+model Trip {
+  id              String      @id @default(uuid())
+  truckId         String      @map("truck_id")
+  truck           Truck       @relation(fields: [truckId], references: [id])
+  date            DateTime
+  status          TripStatus  @default(PLANNED)
+  disposalSiteId  String?     @map("disposal_site_id")
+  disposalSite    DisposalSite? @relation(fields: [disposalSiteId], references: [id])
+  totalKm         Float?      @map("total_km")
+  routeJson       Json?       @map("route_json")
+  unloadWeightKg  Int?        @map("unload_weight_kg")
+  unloadWasteType String?     @map("unload_waste_type")
+  unloadNotes     String?     @map("unload_notes")
+  unloadPhotos    String[]    @map("unload_photos")
+  startedAt       DateTime?   @map("started_at")
+  completedAt     DateTime?   @map("completed_at")
+  stops           TripStop[]
+  routeLogs       RouteLog[]
+  createdAt       DateTime    @default(now()) @map("created_at")
+
+  @@map("trips")
+}
+
+model TripStop {
+  id          String     @id @default(uuid())
+  tripId      String     @map("trip_id")
+  trip        Trip       @relation(fields: [tripId], references: [id])
+  orderId     String     @map("order_id")
+  order       Order      @relation(fields: [orderId], references: [id])
+  stopType    StopType   @map("stop_type")
+  sequence    Int
+  priority    Boolean    @default(false)
+  lat         Float
+  lng         Float
+  address     String
+  status      StopStatus @default(PENDING)
+  arrivedAt   DateTime?  @map("arrived_at")
+  completedAt DateTime?  @map("completed_at")
+  photos      String[]
+  issueNote   String?    @map("issue_note")
+
+  @@map("trip_stops")
+}
+
+model RouteLog {
+  id        String   @id @default(uuid())
+  tripId    String   @map("trip_id")
+  trip      Trip     @relation(fields: [tripId], references: [id])
+  lat       Float
+  lng       Float
+  speed     Float?
+  timestamp DateTime @default(now())
+
+  @@map("route_logs")
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String?       @map("invoice_number")
+  clientId      String        @map("client_id")
+  client        Client        @relation(fields: [clientId], references: [id])
+  orderId       String        @map("order_id")
+  order         Order         @relation(fields: [orderId], references: [id])
+  amount        Float
+  taxPct        Float         @default(20) @map("tax_pct")
+  currency      String        @default("BGN")
+  status        InvoiceStatus @default(DRAFT)
+  notes         String?
+  items         Json?
+  dueDate       DateTime?     @map("due_date")
+  paidAt        DateTime?     @map("paid_at")
+  pdfUrl        String?       @map("pdf_url")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  @@map("invoices")
+}
+
+model CompanySettings {
+  id                String   @id @default("default")
+  name              String   @default("")
+  taxId             String?  @map("tax_id")
+  vatId             String?  @map("vat_id")
+  address           String   @default("")
+  phone             String?
+  email             String?
+  bankName          String?  @map("bank_name")
+  iban              String?
+  invoicePrefix     String   @default("INV") @map("invoice_prefix")
+  invoiceNextNum    Int      @default(1) @map("invoice_next_num")
+  fuelPriceDiesel   Float    @default(3.30) @map("fuel_price_diesel")
+  fuelPriceGasoline Float    @default(3.20) @map("fuel_price_gasoline")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("company_settings")
+}

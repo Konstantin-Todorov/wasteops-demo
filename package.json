@@ -1,0 +1,11 @@
+{
+  "name": "wasteops-demo",
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "cd backend && npm install && npx prisma generate && cd ../frontend && npm install && npm run build && cp -r dist ../backend/dist",
+    "start": "node backend/src/index.js"
+  }
+}
