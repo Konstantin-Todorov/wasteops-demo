@@ -88,6 +88,14 @@ export default function DispatcherApp() {
 
   function handleLogout() { logout(); navigate('/login'); }
 
+  React.useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
   function switchTheme(t) {
     setTheme(t);
     localStorage.setItem('logix_sidebar_theme', t);
