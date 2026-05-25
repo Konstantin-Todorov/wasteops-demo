@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 
 const { runMigrations } = require('./migrate');
+const { main: runSeed } = require('../seed/seed');
 
 const authRoutes = require('./routes/auth.routes');
 const clientRoutes = require('./routes/clients.routes');
@@ -66,6 +67,15 @@ if (fs.existsSync(spaPath)) {
   });
 }
 
+async function seedIfEmpty(prisma) {
+  const count = await prisma.user.count();
+  if (count === 0) {
+    console.log('[seed] Empty database — running demo seed...');
+    await runSeed();
+    console.log('[seed] Demo seed complete.');
+  }
+}
+
 async function seedAdmin(prisma) {
   const email = process.env.OWNER_EMAIL;
   const password = process.env.OWNER_PASSWORD;
@@ -85,6 +95,7 @@ async function start() {
   await runMigrations();
 
   const prisma = new PrismaClient();
+  await seedIfEmpty(prisma);
   await seedAdmin(prisma);
   await prisma.$disconnect();
 

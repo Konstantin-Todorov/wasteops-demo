@@ -303,11 +303,15 @@ async function main() {
   console.log('  ivan@gmail.com            INDIVIDUAL_CLIENT');
 }
 
-main()
-  .catch((e) => {
-    console.error('Грешка при сийдване:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error('Грешка при сийдване:', e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
+
+module.exports = { main };
