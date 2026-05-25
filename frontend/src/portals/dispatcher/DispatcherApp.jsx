@@ -82,7 +82,7 @@ export default function DispatcherApp() {
   const [theme, setTheme]             = useState(
     () => {
       const saved = localStorage.getItem('logix_sidebar_theme');
-      return saved === 'light' ? 'light' : 'dark'; // dark is always the default
+      return saved === 'dark' ? 'dark' : 'light'; // light is the default
     }
   );
 

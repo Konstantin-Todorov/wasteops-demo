@@ -3,8 +3,8 @@
   <head>
     <script>
       try {
-        const t = localStorage.getItem('logix_sidebar_theme');
-        if (!t || t === 'dark') document.documentElement.classList.add('dark');
+        if (localStorage.getItem('logix_sidebar_theme') === 'dark')
+          document.documentElement.classList.add('dark');
       } catch(e) {}
     </script>
     <meta charset="UTF-8" />
