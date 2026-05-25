@@ -39,7 +39,8 @@ router.get('/:role', async (req, res) => {
   const userEnc = encodeURIComponent(userJson);
   const redirectEnc = encodeURIComponent(redirectPath);
 
-  res.redirect(`http://localhost:5173/dev-login?token=${tokenEnc}&user=${userEnc}&redirect=${redirectEnc}`);
+  const baseUrl = process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`;
+  res.redirect(`${baseUrl}/dev-login?token=${tokenEnc}&user=${userEnc}&redirect=${redirectEnc}`);
 });
 
 module.exports = router;
