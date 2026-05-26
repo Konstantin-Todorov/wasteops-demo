@@ -16,6 +16,7 @@ export default function Trips() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => { load(); }, []);
@@ -41,25 +42,37 @@ export default function Trips() {
   const trucks = [...new Map(today.filter(t => t.truck).map(t => [t.truck.id, t.truck])).values()];
 
   return (
-    <div className="p-6 flex gap-6">
+    <div className="p-4 lg:p-6 flex flex-col lg:flex-row gap-4 lg:gap-6">
       {/* Main trip list */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4 lg:mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Курсове</h1>
-            <p className="text-slate-500 text-sm mt-0.5">Управление на маршрути и оптимизация</p>
+            <h1 className="text-xl lg:text-2xl font-bold text-slate-800">Курсове</h1>
+            <p className="text-slate-500 text-xs lg:text-sm mt-0.5">Управление на маршрути и оптимизация</p>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => setShowStats(v => !v)}
+              className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-500 hover:bg-slate-50 bg-white transition-colors">
+              <Truck className="w-3.5 h-3.5" /> Статс
+            </button>
             <button onClick={load} className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-500 hover:bg-slate-50 bg-white transition-colors">
               <RefreshCw className="w-4 h-4" />
             </button>
             <button onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm">
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 lg:px-4 py-2 rounded-lg transition-colors shadow-sm">
               <Plus className="w-4 h-4" />
-              Нов курс
+              <span className="hidden sm:inline">Нов курс</span>
             </button>
           </div>
         </div>
+
+        {/* Mobile stats panel */}
+        {showStats && (
+          <div className="lg:hidden mb-4">
+            <SidebarStats todayDoneStops={todayDoneStops} todayTotalStops={todayTotalStops} todayPct={todayPct}
+              today={today} inProgressCount={inProgressCount} todayKm={todayKm} issueCount={issueCount} trucks={trucks} />
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-20"><RefreshCw className="w-6 h-6 text-green-600 animate-spin" /></div>
@@ -83,96 +96,98 @@ export default function Trips() {
         )}
       </div>
 
-      {/* Right sidebar — fleet overview */}
-      <div className="w-72 flex-shrink-0 space-y-4">
+      {/* Right sidebar — fleet overview (desktop only) */}
+      <div className="hidden lg:block lg:w-72 lg:flex-shrink-0">
+        <SidebarStats todayDoneStops={todayDoneStops} todayTotalStops={todayTotalStops} todayPct={todayPct}
+          today={today} inProgressCount={inProgressCount} todayKm={todayKm} issueCount={issueCount} trucks={trucks} />
+      </div>
 
-        {/* Today's progress */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
-          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500" /> Ден в цифри
-          </h3>
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-slate-500">Спирки завършени</span>
-                <span className="font-bold text-slate-700">{todayDoneStops}/{todayTotalStops}</span>
-              </div>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-2 bg-green-500 rounded-full transition-all" style={{ width: `${todayPct}%` }} />
-              </div>
-              <div className="text-right text-[10px] text-slate-400 mt-0.5">{todayPct}% изпълнено</div>
-            </div>
+      {showCreate && <CreateTripModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); load(); }} />}
+    </div>
+  );
+}
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-slate-50 rounded-xl p-3 text-center">
-                <div className="text-xl font-black text-slate-800">{today.length}</div>
-                <div className="text-[10px] text-slate-500">курса днес</div>
-              </div>
-              <div className="bg-green-50 rounded-xl p-3 text-center">
-                <div className="text-xl font-black text-green-700">{inProgressCount}</div>
-                <div className="text-[10px] text-green-600">в движение</div>
-              </div>
-              <div className="bg-blue-50 rounded-xl p-3 text-center">
-                <div className="text-xl font-black text-blue-700">{Math.round(todayKm)}</div>
-                <div className="text-[10px] text-blue-600">км изминати</div>
-              </div>
-              <div className={`rounded-xl p-3 text-center ${issueCount > 0 ? 'bg-red-50' : 'bg-slate-50'}`}>
-                <div className={`text-xl font-black ${issueCount > 0 ? 'text-red-600' : 'text-slate-400'}`}>{issueCount}</div>
-                <div className={`text-[10px] ${issueCount > 0 ? 'text-red-500' : 'text-slate-400'}`}>проблема</div>
-              </div>
+function SidebarStats({ todayDoneStops, todayTotalStops, todayPct, today, inProgressCount, todayKm, issueCount, trucks }) {
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-green-500" /> Ден в цифри
+        </h3>
+        <div className="space-y-3">
+          <div>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-slate-500">Спирки завършени</span>
+              <span className="font-bold text-slate-700">{todayDoneStops}/{todayTotalStops}</span>
             </div>
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-2 bg-green-500 rounded-full transition-all" style={{ width: `${todayPct}%` }} />
+            </div>
+            <div className="text-right text-[10px] text-slate-400 mt-0.5">{todayPct}% изпълнено</div>
           </div>
-        </div>
-
-        {/* Fleet status */}
-        {trucks.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-              <span className="text-base">🚛</span> Флот днес
-            </h3>
-            <div className="space-y-2">
-              {trucks.map(truck => {
-                const truckTrips = today.filter(t => t.truck?.id === truck.id);
-                const done = truckTrips.reduce((s, t) => s + (t.stops?.filter(st => st.status === 'COMPLETED').length || 0), 0);
-                const total = truckTrips.reduce((s, t) => s + (t.stops?.length || 0), 0);
-                const pct = total > 0 ? Math.round(done / total * 100) : 0;
-                const active = truckTrips.some(t => t.status === 'IN_PROGRESS');
-                return (
-                  <div key={truck.id} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50">
-                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: truck.color || '#64748b' }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-slate-800">{truck.plate}</span>
-                        {active && <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full font-medium">В движение</span>}
-                      </div>
-                      <div className="h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: truck.color || '#64748b' }} />
-                      </div>
-                    </div>
-                    <span className="text-[10px] text-slate-400 flex-shrink-0">{done}/{total}</span>
-                  </div>
-                );
-              })}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-slate-50 rounded-xl p-3 text-center">
+              <div className="text-xl font-black text-slate-800">{today.length}</div>
+              <div className="text-[10px] text-slate-500">курса днес</div>
             </div>
-          </div>
-        )}
-
-        {/* VRP info box */}
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
-          <div className="flex items-start gap-2">
-            <span className="text-lg flex-shrink-0">🗺️</span>
-            <div>
-              <p className="text-xs font-bold text-emerald-800 mb-1">VRP оптимизация</p>
-              <p className="text-[11px] text-emerald-700 leading-relaxed">
-                Спирките са наредени с алгоритъм nearest-neighbor + 2-opt за минимален маршрут.
-                Разгънете курс за да видите спестяванията спрямо произволен ред.
-              </p>
+            <div className="bg-green-50 rounded-xl p-3 text-center">
+              <div className="text-xl font-black text-green-700">{inProgressCount}</div>
+              <div className="text-[10px] text-green-600">в движение</div>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-3 text-center">
+              <div className="text-xl font-black text-blue-700">{Math.round(todayKm)}</div>
+              <div className="text-[10px] text-blue-600">км изминати</div>
+            </div>
+            <div className={`rounded-xl p-3 text-center ${issueCount > 0 ? 'bg-red-50' : 'bg-slate-50'}`}>
+              <div className={`text-xl font-black ${issueCount > 0 ? 'text-red-600' : 'text-slate-400'}`}>{issueCount}</div>
+              <div className={`text-[10px] ${issueCount > 0 ? 'text-red-500' : 'text-slate-400'}`}>проблема</div>
             </div>
           </div>
         </div>
       </div>
-
-      {showCreate && <CreateTripModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); load(); }} />}
+      {trucks.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+            <span className="text-base">🚛</span> Флот днес
+          </h3>
+          <div className="space-y-2">
+            {trucks.map(truck => {
+              const truckTrips = today.filter(t => t.truck?.id === truck.id);
+              const done  = truckTrips.reduce((s, t) => s + (t.stops?.filter(st => st.status === 'COMPLETED').length || 0), 0);
+              const total = truckTrips.reduce((s, t) => s + (t.stops?.length || 0), 0);
+              const pct   = total > 0 ? Math.round(done / total * 100) : 0;
+              const active = truckTrips.some(t => t.status === 'IN_PROGRESS');
+              return (
+                <div key={truck.id} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: truck.color || '#64748b' }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-800">{truck.plate}</span>
+                      {active && <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full font-medium">В движение</span>}
+                    </div>
+                    <div className="h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: truck.color || '#64748b' }} />
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-slate-400 flex-shrink-0">{done}/{total}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
+        <div className="flex items-start gap-2">
+          <span className="text-lg flex-shrink-0">🗺️</span>
+          <div>
+            <p className="text-xs font-bold text-emerald-800 mb-1">VRP оптимизация</p>
+            <p className="text-[11px] text-emerald-700 leading-relaxed">
+              Спирките са наредени с алгоритъм nearest-neighbor + 2-opt за минимален маршрут.
+              Разгънете курс за да видите спестяванията спрямо произволен ред.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -607,8 +622,8 @@ function CreateTripModal({ onClose, onCreated }) {
   const selectedTruckData  = trucks.find(t => t.id === selectedTruck);
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-2xl max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div>

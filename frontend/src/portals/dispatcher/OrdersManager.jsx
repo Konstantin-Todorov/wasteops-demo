@@ -110,33 +110,34 @@ export default function OrdersManager() {
   const pendingCount = orders.filter(o => o.status === 'PENDING_ADMIN').length;
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 lg:p-6">
+      <div className="flex items-center justify-between mb-4 lg:mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Заявки</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Управление и одобрение на заявки</p>
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-800">Заявки</h1>
+          <p className="text-slate-500 text-xs lg:text-sm mt-0.5">Управление и одобрение на заявки</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={loadOrders} className="flex items-center gap-2 text-sm text-slate-500 hover:text-green-600 px-3 py-1.5 border border-slate-200 rounded-lg bg-white transition-colors">
+          <button onClick={loadOrders} className="flex items-center gap-2 text-sm text-slate-500 hover:text-green-600 px-3 py-2 border border-slate-200 rounded-lg bg-white transition-colors">
             <RefreshCw className="w-4 h-4" />
           </button>
           <button onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm">
-            <Plus className="w-4 h-4" /> Нова заявка
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 lg:px-4 py-2 rounded-lg transition-colors shadow-sm">
+            <Plus className="w-4 h-4" /><span className="hidden sm:inline">Нова заявка</span>
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit mb-5">
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-full sm:w-fit mb-4 lg:mb-5">
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+            className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
               tab === t.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}>
-            {t.label}
+            <span className="hidden sm:inline">{t.label}</span>
+            <span className="sm:hidden">{t.key === 'PENDING_ADMIN' ? 'Чакащи' : t.key === 'active' ? 'Активни' : 'Всички'}</span>
             {t.key === 'PENDING_ADMIN' && pendingCount > 0 && (
-              <span className="bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+              <span className="bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                 {pendingCount}
               </span>
             )}
@@ -145,16 +146,16 @@ export default function OrdersManager() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative">
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Търси клиент или адрес..."
-            className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 w-60"
+            className="pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 w-full"
           />
         </div>
         <select value={filterType} onChange={e => setFilterType(e.target.value)}
-          className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
+          className="px-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
           <option value="">Всички типове</option>
           <option value="CONTAINER">📦 Контейнер</option>
           <option value="GARBAGE_TRUCK">🚛 Сметовоз</option>
@@ -248,8 +249,8 @@ function CreateOrderModal({ onClose, onCreated }) {
   const WASTE_OPTIONS = ['Строителни отпадъци','Смесени строителни','Инертни материали','Домашен ремонт','Метални отпадъци','Дървени материали','Индустриални отпадъци','Битови отпадъци'];
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-2xl max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div>
             <h2 className="font-bold text-slate-800 text-lg">Нова заявка — ръчно въвеждане</h2>

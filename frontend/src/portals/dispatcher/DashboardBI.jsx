@@ -24,12 +24,12 @@ function KpiCard({ label, value, sub, icon: Icon, color = 'green', trend, onClic
   return (
     <div
       onClick={onClick}
-      className={`bg-white rounded-xl border ${c.border} p-5 shadow-sm transition-shadow ${onClick ? 'hover:shadow-md cursor-pointer' : ''}`}
+      className={`bg-white rounded-xl border ${c.border} p-3 lg:p-5 shadow-sm transition-shadow ${onClick ? 'hover:shadow-md cursor-pointer' : ''}`}
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-slate-500 font-medium">{label}</p>
-          <p className={`text-3xl font-bold mt-1 ${c.val}`}>{value ?? '—'}</p>
+          <p className="text-xs lg:text-sm text-slate-500 font-medium">{label}</p>
+          <p className={`text-2xl lg:text-3xl font-bold mt-1 ${c.val}`}>{value ?? '—'}</p>
           {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
         </div>
         <div className={`w-10 h-10 ${c.bg} rounded-xl flex items-center justify-center flex-shrink-0`}>
@@ -185,18 +185,18 @@ export default function DashboardBI() {
   const topClients = Object.values(clientOrderMap).sort((a, b) => b.count - a.count).slice(0, 5);
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Табло</h1>
-          <p className="text-slate-500 text-sm mt-0.5">
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-800">Табло</h1>
+          <p className="text-slate-500 text-xs lg:text-sm mt-0.5">
             {new Date().toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <button onClick={loadAll} className="flex items-center gap-2 text-sm text-slate-500 hover:text-green-600 transition-colors px-3 py-1.5 border border-slate-200 rounded-lg bg-white hover:border-green-300">
+        <button onClick={loadAll} className="flex items-center gap-2 text-sm text-slate-500 hover:text-green-600 transition-colors px-3 py-2 border border-slate-200 rounded-lg bg-white hover:border-green-300">
           <RefreshCw className="w-4 h-4" />
-          Обнови
+          <span className="hidden sm:inline">Обнови</span>
         </button>
       </div>
 
@@ -231,7 +231,7 @@ export default function DashboardBI() {
       )}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         <KpiCard
           label="Чакащи одобрение" value={d.pendingAdmin} icon={Clock} color="amber"
           sub="нови заявки от клиенти"
@@ -255,7 +255,7 @@ export default function DashboardBI() {
       </div>
 
       {/* Charts row */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-4">
         <div className="xl:col-span-3 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Заявки — последните 7 дни</h2>
           <ResponsiveContainer width="100%" height={200}>
@@ -290,7 +290,7 @@ export default function DashboardBI() {
       </div>
 
       {/* Bottom row: Waste types + Fleet + Clients */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:gap-4">
         {/* Waste type bar chart */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">По вид отпадък</h2>
