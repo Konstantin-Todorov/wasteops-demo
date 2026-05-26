@@ -421,53 +421,55 @@ function OrderCard({ order, isExpanded, isEditing, onToggle, onStartEdit, onCanc
             {order.orderType === 'CONTAINER' ? '📦' : '🚛'}
           </div>
 
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-slate-800 text-sm">{order.client?.name || 'Клиент'}</span>
-              <StatusBadge status={order.status} />
-              <StatusBadge type={order.orderType} />
+          {/* Info + actions column */}
+          <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-start sm:gap-2">
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-slate-800 text-sm">{order.client?.name || 'Клиент'}</span>
+                <StatusBadge status={order.status} />
+                <StatusBadge type={order.orderType} />
+              </div>
+              <p className="text-sm text-slate-500 mt-0.5 truncate">📍 {order.address}</p>
+              <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-400 flex-wrap">
+                <span className="whitespace-nowrap">🗓️ {dateStr}</span>
+                <span className="whitespace-nowrap">♻️ {order.wasteType || '—'}</span>
+                {order.volumeM3 && <span className="whitespace-nowrap">📐 {order.volumeM3} м³</span>}
+                {order.estimatedKg && <span className="whitespace-nowrap">⚖️ {order.estimatedKg} кг</span>}
+                {order.sourceChannel && (
+                  <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 whitespace-nowrap">
+                    {SOURCE_CHANNELS.find(c => c.value === order.sourceChannel)?.icon} {SOURCE_CHANNELS.find(c => c.value === order.sourceChannel)?.label || order.sourceChannel}
+                  </span>
+                )}
+              </div>
             </div>
-            <p className="text-sm text-slate-500 mt-0.5 truncate">📍 {order.address}</p>
-            <div className="flex items-center gap-4 mt-1.5 text-xs text-slate-400 flex-wrap">
-              <span>🗓️ {dateStr}</span>
-              <span>♻️ {order.wasteType || '—'}</span>
-              {order.volumeM3 && <span>📐 {order.volumeM3} м³</span>}
-              {order.estimatedKg && <span>⚖️ {order.estimatedKg} кг</span>}
-              {order.paymentMethod && <span>💳 {order.paymentMethod}</span>}
-              {order.sourceChannel && (
-                <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">
-                  {SOURCE_CHANNELS.find(c => c.value === order.sourceChannel)?.icon} {SOURCE_CHANNELS.find(c => c.value === order.sourceChannel)?.label || order.sourceChannel}
-                </span>
-              )}
-            </div>
-          </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
-            {isPending && (
-              <button onClick={onApprove} disabled={!!actioning}
-                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
-                <Check className="w-3.5 h-3.5" />
-                Потвърди
+            {/* Actions */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-2 sm:mt-0 flex-shrink-0">
+              {isPending && (
+                <button onClick={onApprove} disabled={!!actioning}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
+                  <Check className="w-3.5 h-3.5" />
+                  Потвърди
+                </button>
+              )}
+              {canEdit && !isEditing && (
+                <button onClick={onStartEdit}
+                  className="flex items-center gap-1 px-2.5 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold rounded-lg transition-colors">
+                  <Edit2 className="w-3.5 h-3.5" />
+                  Редактирай
+                </button>
+              )}
+              {canCancel && (
+                <button onClick={onCancel} disabled={!!actioning}
+                  className="p-1.5 border border-red-200 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" title="Откажи заявката">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button onClick={onToggle} className="text-slate-400 hover:text-slate-600 p-1.5">
+                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
-            )}
-            {canEdit && !isEditing && (
-              <button onClick={onStartEdit}
-                className="flex items-center gap-1 px-2.5 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold rounded-lg transition-colors">
-                <Edit2 className="w-3.5 h-3.5" />
-                Редактирай
-              </button>
-            )}
-            {canCancel && (
-              <button onClick={onCancel} disabled={!!actioning}
-                className="p-1.5 border border-red-200 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" title="Откажи заявката">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-            <button onClick={onToggle} className="text-slate-400 hover:text-slate-600 p-1.5">
-              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
+            </div>
           </div>
         </div>
       </div>

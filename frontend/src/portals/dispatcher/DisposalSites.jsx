@@ -245,6 +245,53 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
   );
 }
 
+function DisposalSiteStats({ sites, activeCount, inactiveCount, totalTrips, onAddSite }) {
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Обобщение</p>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-600">Общо депа</span>
+            <span className="text-lg font-bold text-slate-800">{sites.length}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block" />
+              <span className="text-sm text-slate-600">Активни</span>
+            </div>
+            <span className="text-sm font-semibold text-slate-800">{activeCount}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" />
+              <span className="text-sm text-slate-600">Неактивни</span>
+            </div>
+            <span className="text-sm font-semibold text-slate-800">{inactiveCount}</span>
+          </div>
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-sm text-slate-600">Общо курсове</span>
+            <span className="text-lg font-bold text-purple-600">{totalTrips}</span>
+          </div>
+        </div>
+      </div>
+      <div className="bg-purple-50 border border-purple-100 rounded-2xl p-5">
+        <p className="text-xs font-semibold text-purple-700 mb-1">Зони за засичане</p>
+        <p className="text-xs text-purple-600 leading-relaxed">
+          Радиусът определя зоната, в която GPS позицията на камиона се счита за пристигане в депото.
+        </p>
+      </div>
+      <div className="bg-green-50 border border-green-100 rounded-2xl p-5">
+        <p className="text-xs font-semibold text-green-700 mb-2">Бърз достъп</p>
+        <button onClick={onAddSite}
+          className="w-full text-sm text-green-700 hover:text-green-900 font-medium py-2 px-3 rounded-lg hover:bg-green-100 transition-colors text-left">
+          + Ново депо
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function DisposalSites() {
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -254,6 +301,7 @@ export default function DisposalSites() {
   const [editSite, setEditSite] = useState(null);
   const [confirm, setConfirm] = useState(null); // { site }
   const [actionError, setActionError] = useState('');
+  const [showStats, setShowStats] = useState(false);
 
   function load() {
     setLoading(true);
@@ -302,28 +350,43 @@ export default function DisposalSites() {
   }
 
   return (
-    <div className="p-6 flex gap-6">
+    <div className="p-4 lg:p-6 flex flex-col lg:flex-row gap-4 lg:gap-6">
       {/* Main content */}
-      <div className="flex-1 min-w-0 space-y-5">
+      <div className="flex-1 min-w-0 space-y-4 lg:space-y-5">
         {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-slate-800">Депа за отпадъци</h1>
+              <h1 className="text-xl lg:text-2xl font-bold text-slate-800">Депа за отпадъци</h1>
               <span className="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-sm font-semibold">
                 {sites.length}
               </span>
             </div>
-            <p className="text-sm text-slate-500 mt-1">Управление на площадки за депониране</p>
+            <p className="text-sm text-slate-500 mt-0.5">Управление на площадки за депониране</p>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Ново депо
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowStats(v => !v)}
+              className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-500 hover:bg-slate-50 bg-white transition-colors"
+            >
+              📊 Статс
+            </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Ново депо</span>
+            </button>
+          </div>
         </div>
+
+        {/* Mobile stats */}
+        {showStats && (
+          <div className="lg:hidden">
+            <DisposalSiteStats sites={sites} activeCount={activeCount} inactiveCount={inactiveCount} totalTrips={totalTrips} onAddSite={() => setShowCreate(true)} />
+          </div>
+        )}
 
         {actionError && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600 flex items-center justify-between">
@@ -451,52 +514,9 @@ export default function DisposalSites() {
         )}
       </div>
 
-      {/* Right sidebar */}
-      <div className="w-60 flex-shrink-0 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Обобщение</p>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-600">Общо депа</span>
-              <span className="text-lg font-bold text-slate-800">{sites.length}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block" />
-                <span className="text-sm text-slate-600">Активни</span>
-              </div>
-              <span className="text-sm font-semibold text-slate-800">{activeCount}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" />
-                <span className="text-sm text-slate-600">Неактивни</span>
-              </div>
-              <span className="text-sm font-semibold text-slate-800">{inactiveCount}</span>
-            </div>
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-sm text-slate-600">Общо курсове</span>
-              <span className="text-lg font-bold text-purple-600">{totalTrips}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-purple-50 border border-purple-100 rounded-2xl p-5">
-          <p className="text-xs font-semibold text-purple-700 mb-1">Зони за засичане</p>
-          <p className="text-xs text-purple-600 leading-relaxed">
-            Радиусът определя зоната, в която GPS позицията на камиона се счита за пристигане в депото.
-          </p>
-        </div>
-
-        <div className="bg-green-50 border border-green-100 rounded-2xl p-5">
-          <p className="text-xs font-semibold text-green-700 mb-2">Бърз достъп</p>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="w-full text-sm text-green-700 hover:text-green-900 font-medium py-2 px-3 rounded-lg hover:bg-green-100 transition-colors text-left"
-          >
-            + Ново депо
-          </button>
-        </div>
+      {/* Right sidebar — desktop only */}
+      <div className="hidden lg:block lg:w-60 lg:flex-shrink-0 space-y-4">
+        <DisposalSiteStats sites={sites} activeCount={activeCount} inactiveCount={inactiveCount} totalTrips={totalTrips} onAddSite={() => setShowCreate(true)} />
       </div>
 
       {showCreate && <SiteModal onClose={() => setShowCreate(false)} onSaved={load} />}

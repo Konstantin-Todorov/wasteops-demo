@@ -319,7 +319,7 @@ function TripCard({ trip, expanded, onToggle, onRefresh, onMap }) {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-slate-800">{trip.truck?.plate}</span>
+              <span className="font-bold text-slate-800 whitespace-nowrap">{trip.truck?.plate}</span>
               <span className="text-slate-400 text-sm">·</span>
               <span className="text-sm text-slate-600">{trip.truck?.model}</span>
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${STATUS_STYLE[trip.status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>

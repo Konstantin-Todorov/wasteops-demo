@@ -113,6 +113,60 @@ function ClientModal({ client, onClose, onSaved }) {
   );
 }
 
+function ClientStats({ clients, corporate, individual, totalOrders, onAddClient }) {
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Обобщение</p>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-600">Всички клиенти</span>
+            <span className="text-lg font-bold text-slate-800">{clients.length}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" />
+              <span className="text-sm text-slate-600">Фирми</span>
+            </div>
+            <span className="text-sm font-semibold text-slate-800">{corporate.length}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block" />
+              <span className="text-sm text-slate-600">Физически лица</span>
+            </div>
+            <span className="text-sm font-semibold text-slate-800">{individual.length}</span>
+          </div>
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-sm text-slate-600">Общо заявки</span>
+            <span className="text-lg font-bold text-green-600">{totalOrders}</span>
+          </div>
+        </div>
+      </div>
+      {clients.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Разпределение</p>
+          <div className="flex h-3 rounded-full overflow-hidden mb-2">
+            <div className="bg-blue-400 transition-all" style={{ width: `${Math.round(corporate.length / clients.length * 100)}%` }} />
+            <div className="bg-purple-400 flex-1" />
+          </div>
+          <div className="flex justify-between text-xs text-slate-400">
+            <span>{Math.round(corporate.length / clients.length * 100)}% фирми</span>
+            <span>{Math.round(individual.length / clients.length * 100)}% лица</span>
+          </div>
+        </div>
+      )}
+      <div className="bg-green-50 border border-green-100 rounded-2xl p-5">
+        <p className="text-xs font-semibold text-green-700 mb-2">Бърз достъп</p>
+        <button onClick={onAddClient}
+          className="w-full text-sm text-green-700 hover:text-green-900 font-medium py-2 px-3 rounded-lg hover:bg-green-100 transition-colors text-left">
+          + Нов клиент
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Clients() {
   const [clients, setClients] = useState([]);
   const [search, setSearch] = useState('');
@@ -120,6 +174,7 @@ export default function Clients() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editClient, setEditClient] = useState(null);
+  const [showStats, setShowStats] = useState(false);
 
   function load() {
     setLoading(true);
@@ -140,22 +195,37 @@ export default function Clients() {
   const totalOrders = clients.reduce((s, c) => s + (c._count?.orders ?? 0), 0);
 
   return (
-    <div className="p-6 flex gap-6">
+    <div className="p-4 lg:p-6 flex flex-col lg:flex-row gap-4 lg:gap-6">
       {/* Main content */}
-      <div className="flex-1 min-w-0 space-y-5">
+      <div className="flex-1 min-w-0 space-y-4 lg:space-y-5">
         {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Клиенти</h1>
-            <p className="text-sm text-slate-500 mt-1">Управление на клиентска база</p>
+            <h1 className="text-xl lg:text-2xl font-bold text-slate-800">Клиенти</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Управление на клиентска база</p>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
-          >
-            <span className="text-lg leading-none">+</span> Нов клиент
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowStats(v => !v)}
+              className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-500 hover:bg-slate-50 bg-white transition-colors"
+            >
+              📊 Статс
+            </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
+            >
+              <span className="text-lg leading-none">+</span><span className="hidden sm:inline">Нов клиент</span>
+            </button>
+          </div>
         </div>
+
+        {/* Mobile stats panel */}
+        {showStats && (
+          <div className="lg:hidden">
+            <ClientStats clients={clients} corporate={corporate} individual={individual} totalOrders={totalOrders} onAddClient={() => setShowCreate(true)} />
+          </div>
+        )}
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3">
@@ -224,60 +294,9 @@ export default function Clients() {
         )}
       </div>
 
-      {/* Right sidebar */}
-      <div className="w-64 flex-shrink-0 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Обобщение</p>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-600">Всички клиенти</span>
-              <span className="text-lg font-bold text-slate-800">{clients.length}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" />
-                <span className="text-sm text-slate-600">Фирми</span>
-              </div>
-              <span className="text-sm font-semibold text-slate-800">{corporate.length}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block" />
-                <span className="text-sm text-slate-600">Физически лица</span>
-              </div>
-              <span className="text-sm font-semibold text-slate-800">{individual.length}</span>
-            </div>
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-sm text-slate-600">Общо заявки</span>
-              <span className="text-lg font-bold text-green-600">{totalOrders}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Distribution bar */}
-        {clients.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Разпределение</p>
-            <div className="flex h-3 rounded-full overflow-hidden mb-2">
-              <div className="bg-blue-400 transition-all" style={{ width: `${Math.round(corporate.length / clients.length * 100)}%` }} />
-              <div className="bg-purple-400 flex-1" />
-            </div>
-            <div className="flex justify-between text-xs text-slate-400">
-              <span>{Math.round(corporate.length / clients.length * 100)}% фирми</span>
-              <span>{Math.round(individual.length / clients.length * 100)}% лица</span>
-            </div>
-          </div>
-        )}
-
-        <div className="bg-green-50 border border-green-100 rounded-2xl p-5">
-          <p className="text-xs font-semibold text-green-700 mb-2">Бърз достъп</p>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="w-full text-sm text-green-700 hover:text-green-900 font-medium py-2 px-3 rounded-lg hover:bg-green-100 transition-colors text-left"
-          >
-            + Нов клиент
-          </button>
-        </div>
+      {/* Right sidebar — desktop only */}
+      <div className="hidden lg:block lg:w-64 lg:flex-shrink-0 space-y-4">
+        <ClientStats clients={clients} corporate={corporate} individual={individual} totalOrders={totalOrders} onAddClient={() => setShowCreate(true)} />
       </div>
 
       {showCreate && <ClientModal onClose={() => setShowCreate(false)} onSaved={load} />}

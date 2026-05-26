@@ -212,6 +212,7 @@ export default function LiveMap() {
   const [loading, setLoading]       = useState(true);
   const [editingSite, setEditingSite] = useState(null);
   const [flyToTarget, setFlyToTarget] = useState(null);
+  const [showPanel, setShowPanel] = useState(false);
 
   const loadTrips = useCallback(async () => {
     setLoading(true);
@@ -414,6 +415,15 @@ export default function LiveMap() {
             onSaved={() => { setEditingSite(null); loadTrips(); }}
           />
         )}
+
+        {/* Mobile panel toggle button */}
+        <button
+          onClick={() => setShowPanel(v => !v)}
+          className="lg:hidden absolute bottom-24 right-4 z-[990] bg-slate-800 text-white rounded-xl shadow-lg px-4 py-2.5 flex items-center gap-2 text-sm font-semibold"
+        >
+          <Layers className="w-4 h-4" />
+          {showPanel ? 'Карта' : `Маршрути (${filteredTrips.length})`}
+        </button>
 
         {/* Map overlay controls */}
         <div className={`absolute top-4 z-[999] flex flex-col gap-2 ${editingSite ? 'right-80' : 'right-4'}`}>
@@ -679,10 +689,26 @@ export default function LiveMap() {
       </div>
 
       {/* SIDE PANEL */}
-      <div className="w-72 bg-white border-l border-slate-200 overflow-y-auto flex-shrink-0 flex flex-col">
+      <div className={`
+        lg:relative lg:w-72 lg:flex-shrink-0 lg:translate-y-0
+        ${showPanel ? 'fixed lg:static inset-x-0 bottom-0 h-[60vh] z-[700]' : 'hidden lg:flex'}
+        bg-white border-t lg:border-t-0 lg:border-l border-slate-200
+        flex-col overflow-hidden
+      `}>
+        {/* Mobile close bar */}
+        <div className="lg:hidden flex items-center justify-between px-4 py-2.5 border-b border-slate-200 flex-shrink-0 bg-slate-50">
+          <span className="text-sm font-bold text-slate-700">Маршрути</span>
+          <button onClick={() => setShowPanel(false)} className="text-slate-400 hover:text-slate-600 p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Scrollable panel content */}
+        <div className="flex-1 overflow-y-auto flex flex-col">
+
         {/* Date filter */}
         <div className="p-4 border-b border-slate-100 flex-shrink-0">
-          <h2 className="font-bold text-slate-800 mb-3">Маршрути</h2>
+          <h2 className="font-bold text-slate-800 mb-3 hidden lg:block">Маршрути</h2>
           <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
             {[['today','Днес'],['week','Седмица'],['all','Всички']].map(([k,l]) => (
               <button key={k} onClick={() => setDateFilter(k)}
@@ -812,6 +838,7 @@ export default function LiveMap() {
             ))}
           </div>
         </div>
+        </div>{/* end scrollable panel content */}
       </div>
     </div>
   );
