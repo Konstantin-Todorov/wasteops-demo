@@ -47,7 +47,10 @@ router.get('/', authenticate, async (req, res) => {
       where.clientId = clientId;
     }
 
-    if (status) where.status = status;
+    if (status) {
+      const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+      where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
+    }
     if (type) where.orderType = type;
 
     const orders = await prisma.order.findMany({
