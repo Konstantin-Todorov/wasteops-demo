@@ -116,6 +116,28 @@ Leaflet.js + OpenStreetMap tiles (no API key needed). Live truck positions are s
 ### Live driver GPS
 Driver PWA (`DriverRoute.jsx`) uses `navigator.geolocation.watchPosition()` when a trip is `IN_PROGRESS`. Emits `driver_position` via Socket.io → backend `io.on('connection')` handler re-emits as `truck_position` → `LiveMap.jsx` updates `livePos` state → `LiveTruckMarker` renders the real position on the map. GPS status badge shown to driver (active/denied/error).
 
+## Предстоящи функционалности (чакат отговори от клиента)
+
+### Тегловна интеграция — BARON-DAT
+Ако клиентът има BARON-DAT устройства на камионите:
+- Нов `backend/src/services/baron.service.js` — auth + token refresh + методи `getDevices()`, `getGeo()`, `getEvents()`
+- Prisma миграция: `trucks.baronImei`, `containers.rfidTag`, `trip_stops.weightKg`, `trip_stops.baronEventId`
+- Cron/polling на `/events` на всеки 2-3 мин → при match `tag ↔ container.rfidTag` автоматично `TripStop.status = COMPLETED` + запис на теглото
+- Ниво 1 (само GPS): подмяна на Socket.io симулацията с реални координати от `/devices`
+- Ниво 3: фактура по реално тегло (`kg_net × цена/кг`)
+
+### Чести спирки (RecurringStop)
+Ако клиентът има редовни адреси с повтарящо се обслужване:
+- Нов Prisma модел `RecurringStop` — адрес, клиент, честота (седмично/месечно/по график), тип контейнер
+- Backend: cron job генерира `Order` автоматично при настъпване на датата
+- Dispatcher UI: раздел "Шаблонни заявки" за управление на recurring stops
+
+### Клиентски въпросник
+Изпратен документ `Въпроси за клиента — Logix.docx` (46 въпроса, 9 секции).
+При получаване на отговорите — имплементиране спрямо конкретните нужди.
+
+---
+
 ## Demo accounts (password: `password123`)
 | Role | Email |
 |------|-------|
