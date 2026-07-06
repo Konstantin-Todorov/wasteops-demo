@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../../lib/api';
 import { socket, connectSocket } from '../../lib/socket';
-import { Navigation, CheckCircle, AlertTriangle, Package, Truck, ChevronRight, MapPin } from 'lucide-react';
+import { useAuth } from '../../lib/auth';
+import { Navigation, CheckCircle, AlertTriangle, Package, Truck, ChevronRight, MapPin, Locate, LocateOff } from 'lucide-react';
 
 const STOP_TYPE_LABEL = {
   DELIVERY: 'Доставка на контейнер',
@@ -51,6 +52,7 @@ function StopTypeBadge({ stopType }) {
 }
 
 export default function DriverRoute() {
+  const { user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeStop, setActiveStop] = useState(null);
@@ -58,6 +60,53 @@ export default function DriverRoute() {
   const [issueNote, setIssueNote] = useState('');
   const [customNote, setCustomNote] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [gpsStatus, setGpsStatus] = useState('idle'); // idle | active | denied | error
+  const watchIdRef = useRef(null);
+
+  // Start/stop geolocation tracking based on active trip
+  useEffect(() => {
+    const hasActive = trips.some(t => t.status === 'IN_PROGRESS');
+    if (hasActive && watchIdRef.current === null) {
+      startGps();
+    } else if (!hasActive && watchIdRef.current !== null) {
+      stopGps();
+    }
+    return () => stopGps();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trips]);
+
+  function startGps() {
+    if (!navigator.geolocation) { setGpsStatus('error'); return; }
+    setGpsStatus('active');
+    const activeTrip = trips.find(t => t.status === 'IN_PROGRESS');
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        socket.emit('driver_position', {
+          truckId:  activeTrip?.truck?.id || user?.id,
+          plate:    activeTrip?.truck?.plate || user?.name,
+          color:    activeTrip?.truck?.color || '#22c55e',
+          lat:      pos.coords.latitude,
+          lng:      pos.coords.longitude,
+          speed:    pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0,
+          heading:  pos.coords.heading,
+        });
+        setGpsStatus('active');
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) setGpsStatus('denied');
+        else setGpsStatus('error');
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    );
+  }
+
+  function stopGps() {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation?.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+      setGpsStatus('idle');
+    }
+  }
 
   useEffect(() => {
     loadTrips();
@@ -124,8 +173,27 @@ export default function DriverRoute() {
     </div>
   );
 
+  // GPS status badge shown at top when a trip is active
+  const GpsBadge = () => {
+    if (gpsStatus === 'idle') return null;
+    const cfg = {
+      active:  { icon: Locate,    cls: 'bg-green-50 border-green-200 text-green-700',  dot: 'bg-green-500 animate-pulse', label: 'GPS активен — диспечерът вижда позицията ви' },
+      denied:  { icon: LocateOff, cls: 'bg-red-50 border-red-200 text-red-700',       dot: 'bg-red-400',                  label: 'GPS достъпът е отказан — разрешете в настройките' },
+      error:   { icon: LocateOff, cls: 'bg-amber-50 border-amber-200 text-amber-700', dot: 'bg-amber-400',                label: 'GPS грешка — проверете връзката' },
+    }[gpsStatus];
+    const Icon = cfg.icon;
+    return (
+      <div className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs font-medium ${cfg.cls}`}>
+        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
+        <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+        <span>{cfg.label}</span>
+      </div>
+    );
+  };
+
   return (
     <div className="p-4 space-y-4 pb-6">
+      <GpsBadge />
       {trips.map(trip => {
         const done = trip.stops.filter(s => s.status === 'COMPLETED').length;
         const nextStop = trip.stops.find(s => s.status === 'PENDING' || s.status === 'ARRIVED');

@@ -101,6 +101,15 @@ async function start() {
 
   setupSimulation(io);
 
+  // Driver PWA live GPS relay
+  io.on('connection', (socket) => {
+    socket.on('driver_position', (data) => {
+      // data: { truckId, plate, color, lat, lng, speed, heading }
+      // Broadcast to all dispatcher/admin clients
+      io.emit('truck_position', data);
+    });
+  });
+
   const PORT = process.env.PORT || 3001;
   server.listen(PORT, () => {
     console.log(`WasteLogix backend running on port ${PORT}`);

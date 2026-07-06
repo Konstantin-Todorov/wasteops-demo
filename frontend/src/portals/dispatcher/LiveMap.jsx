@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap, useMa
 import L from 'leaflet';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { socket, connectSocket, disconnectSocket } from '../../lib/socket';
 import { RefreshCw, Layers, TrendingDown, Fuel, Clock, MapPin, ChevronDown, X, Edit2, ToggleLeft, ToggleRight, ChevronRight } from 'lucide-react';
 
 const HQ = [43.861917, 26.034763];
@@ -229,9 +230,14 @@ export default function LiveMap() {
 
   useEffect(() => {
     loadTrips();
-    // Listen for live GPS (future real GPS devices)
-    // socket.on('truck_position', ...) — kept for real device integration
-    return () => {};
+    connectSocket();
+    // Real driver GPS positions — emitted by Driver PWA via socket relay
+    socket.on('truck_position', (data) => {
+      setLivePos(prev => ({ ...prev, [data.truckId]: data }));
+    });
+    return () => {
+      socket.off('truck_position');
+    };
   }, [loadTrips]);
 
   // Load route+savings when a trip is selected

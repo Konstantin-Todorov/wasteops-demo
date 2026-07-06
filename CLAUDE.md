@@ -113,6 +113,9 @@ Leaflet.js + OpenStreetMap tiles (no API key needed). Live truck positions are s
 ### Notifications endpoint
 `GET /api/notifications` — requires `ADMIN | DISPATCHER | ACCOUNTANT`. Aggregates pending orders, issue-reported stops, overdue invoices, active/completed trips, new clients, and order events into a unified list sorted by date. Frontend polls every 60 s.
 
+### Live driver GPS
+Driver PWA (`DriverRoute.jsx`) uses `navigator.geolocation.watchPosition()` when a trip is `IN_PROGRESS`. Emits `driver_position` via Socket.io → backend `io.on('connection')` handler re-emits as `truck_position` → `LiveMap.jsx` updates `livePos` state → `LiveTruckMarker` renders the real position on the map. GPS status badge shown to driver (active/denied/error).
+
 ## Demo accounts (password: `password123`)
 | Role | Email |
 |------|-------|
