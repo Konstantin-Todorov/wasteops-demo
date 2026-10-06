@@ -40,6 +40,7 @@ router.post('/optimize', authenticate, authorize('ADMIN', 'DISPATCHER'), async (
       id: o.id,
       orderId: o.id,
       orderType: o.orderType,
+      status: o.status,
       lat: o.lat,
       lng: o.lng,
       address: o.address,
@@ -74,8 +75,11 @@ router.post('/save', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req,
           stops: {
             create: route.stops.map((stop, i) => ({
               orderId: stop.orderId,
-              // Determine stop type from order type
-              stopType: stop.orderType === 'CONTAINER' ? 'DELIVERY' : 'LOAD',
+              // Типът зависи от това къде е заявката в жизнения си цикъл,
+              // не само от вида ѝ — иначе PICKUP никога не се създава.
+              stopType: stop.orderType !== 'CONTAINER' ? 'LOAD'
+                : ['CONTAINER_DELIVERED','AWAITING_FILL','PICKUP_SCHEDULED'].includes(stop.status)
+                  ? 'PICKUP' : 'DELIVERY',
               sequence: i + 1,
               lat: stop.lat,
               lng: stop.lng,
@@ -93,7 +97,6 @@ router.post('/save', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req,
     for (const route of routes) {
       for (const stop of (route.stops || [])) {
         if (stop.orderType === 'CONTAINER') {
-          // Container orders: CONFIRMED → DELIVERY_SCHEDULED
           await prisma.order.update({
             where: { id: stop.orderId, status: 'CONFIRMED' },
             data: { status: 'DELIVERY_SCHEDULED' }

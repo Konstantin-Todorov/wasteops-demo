@@ -12,6 +12,15 @@ async function optimizeRoutes({ hq, stops, trucks }) {
     const routePoints = [hq, ...stopIndices.map(idx => stops[idx]), hq];
     const { geometry, distanceKm, durationMin } = await getRoute(routePoints);
 
+    // Базата за сравнение: СЪЩИТЕ спирки, в реда на постъпване на заявките,
+    // мерени по същия начин — по реалните пътища. Сравнение на пътно
+    // разстояние срещу права линия дава безсмислени проценти.
+    const original = [...stopIndices].sort((a, b) => a - b);
+    const baselinePoints = [hq, ...original.map(idx => stops[idx]), hq];
+    const baseline = original.length
+      ? await getRoute(baselinePoints).catch(() => ({ distanceKm: distanceKm }))
+      : { distanceKm: 0 };
+
     const totalWeight = stopIndices.reduce((sum, idx) => sum + (stops[idx].estimatedKg || 0), 0);
     const totalVolume = stopIndices.reduce((sum, idx) => sum + (stops[idx].volumeM3 || 0), 0);
 
@@ -24,19 +33,33 @@ async function optimizeRoutes({ hq, stops, trucks }) {
       loadWeightKg: totalWeight,
       loadVolumeM3: Math.round(totalVolume * 10) / 10,
       weightUtilization: truck.capacityKg ? Math.round(totalWeight / truck.capacityKg * 100) : 0,
-      volumeUtilization: truck.capacityM3 ? Math.round(totalVolume / truck.capacityM3 * 100) : 0
+      volumeUtilization: truck.capacityM3 ? Math.round(totalVolume / truck.capacityM3 * 100) : 0,
+      baselineKm: Math.round((baseline.distanceKm || 0) * 10) / 10,
     };
   }));
 
   const totalKm = result.reduce((s, r) => s + r.totalKm, 0);
-  const randomKm = estimateRandomKm(stops, hq);
+  // Спирките, които реално влязоха в план — в оригиналния си ред.
+  const routedIds = new Set(result.flatMap(r => (r.stops || []).map(s => s.id)));
+  const unassigned = stops.filter(s => !routedIds.has(s.id));
+  const baseKm = result.reduce((s, r) => s + (r.baselineKm || 0), 0);
 
   return {
     routes: result,
     totalKm: Math.round(totalKm * 10) / 10,
-    kmSaved: Math.max(0, Math.round((randomKm - totalKm) * 10) / 10),
-    randomKm: Math.round(randomKm * 10) / 10,
-    savingPercent: randomKm > 0 ? Math.round((randomKm - totalKm) / randomKm * 100) : 0
+    baselineKm: Math.round(baseKm * 10) / 10,
+    kmSaved: Math.max(0, Math.round((baseKm - totalKm) * 10) / 10),
+    savingPercent: baseKm > 0 ? Math.max(0, Math.round((baseKm - totalKm) / baseKm * 100)) : 0,
+    // Прозрачност защо не всичко е разпределено — иначе изглежда като бъг.
+    assignedCount: routedIds.size,
+    unassignedCount: unassigned.length,
+    unassigned: unassigned.slice(0, 50).map(s => ({
+      id: s.id, clientName: s.clientName, address: s.address,
+      estimatedKg: s.estimatedKg, volumeM3: s.volumeM3,
+    })),
+    reason: unassigned.length
+      ? 'Капацитетът на наличните камиони не стига за всички заявки в един ден'
+      : null,
   };
 }
 
@@ -100,15 +123,6 @@ function twoOpt(route, distances) {
     }
   }
   return best;
-}
-
-function estimateRandomKm(stops, hq) {
-  const { haversine } = require('./osrm.service');
-  let total = haversine(hq, stops[0]) * 2;
-  for (let i = 0; i < stops.length - 1; i++) {
-    total += haversine(stops[i], stops[i + 1]);
-  }
-  return total * 1.3;
 }
 
 module.exports = { optimizeRoutes };

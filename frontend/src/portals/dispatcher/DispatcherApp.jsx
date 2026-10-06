@@ -6,7 +6,7 @@ import GuideContent from '../../pages/GuidePage';
 import NotificationBell from './NotificationBell';
 
 import DashboardBI from './DashboardBI';
-import RouteOptimizer from './Dashboard';
+import RouteOptimizer from './RouteOptimizer';
 import FleetView from './FleetView';
 import OrdersManager from './OrdersManager';
 import LiveMap from './LiveMap';
