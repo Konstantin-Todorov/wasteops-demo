@@ -1,11 +1,9 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
 const { optimizeRoutes } = require('../services/vrp.service');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
 const HQ = { lat: 43.861917, lng: 26.034763, name: 'База — Русе' };
 
 router.post('/optimize', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {

@@ -56,10 +56,11 @@ enum OrderStatus {
 }
 
 enum StopType {
-  DELIVERY
-  PICKUP
-  LOAD
-  UNLOAD
+  DELIVERY   // оставяне на празен контейнер
+  PICKUP     // вземане на пълен контейнер
+  SWAP       // размяна — пълният се взема и празен се оставя в едно движение
+  LOAD       // товарене със сметосъбирач
+  UNLOAD     // разтоварване на депо
 }
 
 enum StopStatus {
@@ -328,6 +329,8 @@ model CompanySettings {
   invoiceNextNum    Int      @default(1) @map("invoice_next_num")
   fuelPriceDiesel   Float    @default(3.30) @map("fuel_price_diesel")
   fuelPriceGasoline Float    @default(3.20) @map("fuel_price_gasoline")
+  pricePerM3        Float    @default(50) @map("price_per_m3")
+  pricePerTon       Float    @default(50) @map("price_per_ton")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("company_settings")

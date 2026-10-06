@@ -1,10 +1,10 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const { validateBody, validateParamId } = require('../middleware/validate.middleware');
+const S = require('../validation/schemas');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
 router.get('/', authenticate, async (req, res) => {
   try {
     const { role, clientId } = req.user;
@@ -21,6 +21,9 @@ router.get('/', authenticate, async (req, res) => {
     });
     res.json(clients);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -34,11 +37,14 @@ router.get('/:id', authenticate, async (req, res) => {
     if (!client) return res.status(404).json({ error: 'Клиентът не е намерен' });
     res.json(client);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
+router.post('/', authenticate, authorize('ADMIN', 'DISPATCHER'), validateBody(S.createClient), async (req, res) => {
   try {
     const {
       type, name, taxId, address, lat, lng,
@@ -59,6 +65,9 @@ router.post('/', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res
     });
     res.status(201).json(client);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -92,6 +101,37 @@ router.patch('/:id', authenticate, async (req, res) => {
     const client = await prisma.client.update({ where: { id: req.params.id }, data });
     res.json(client);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/clients/:id — клиент с история не се трие, за да не се чупят фактурите
+router.delete('/:id', validateParamId(), authenticate, authorize('ADMIN'), async (req, res) => {
+  try {
+    const client = await prisma.client.findUnique({
+      where: { id: req.params.id },
+      include: { orders: { take: 1 }, invoices: { take: 1 }, users: { take: 1 } }
+    });
+    if (!client) return res.status(404).json({ error: 'Клиентът не е намерен' });
+
+    if (client.orders.length || client.invoices.length) {
+      return res.status(409).json({
+        error: 'Клиентът има заявки или фактури и не може да бъде изтрит. Използвайте архивиране.'
+      });
+    }
+    if (client.users.length) {
+      return res.status(409).json({ error: 'Първо изтрийте свързаните потребителски акаунти' });
+    }
+
+    await prisma.client.delete({ where: { id: client.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });

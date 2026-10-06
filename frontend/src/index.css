@@ -1,128 +1,242 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── CSS variables ─────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   Дизайн токени. Всичко е RGB тройки без функция, за да може Tailwind да
+   прилага прозрачност върху тях (text-ink/60 и подобни).
+   ───────────────────────────────────────────────────────────────────────── */
 :root {
-  --bg-base:    #f8fafc;
-  --bg-surface: #ffffff;
-  --bg-raised:  #f1f5f9;
-  --bg-input:   #ffffff;
-  --border:     #e2e8f0;
-  --border-mid: #cbd5e1;
-  --text-1:     #0f172a;
-  --text-2:     #475569;
-  --text-3:     #94a3b8;
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.08);
-  --shadow-md:  0 4px 12px rgba(0,0,0,0.10);
+  /* Повърхности — студено-неутрални с лек зелен уклон към марката */
+  --c-canvas:      247 248 250;
+  --c-surface:     255 255 255;
+  --c-raised:      249 250 251;
+  --c-sunken:      241 243 245;
+  --c-line:        226 230 235;
+  --c-line-strong: 203 210 218;
+
+  /* Текст */
+  --c-ink:    17 20 24;
+  --c-ink-2:  86 95 107;
+  --c-ink-3:  138 147 158;
+
+  /* Марка — зелено, но приглушено, не неоново */
+  --c-brand:        21 128 61;
+  --c-brand-strong: 15 95 46;
+  --c-brand-soft:   226 243 232;
+  --c-brand-ink:    255 255 255;
+
+  /* Семантични — отделни от марката */
+  --c-ok:     22 120 60;   --c-ok-soft:     222 242 229;
+  --c-warn:   163 94 7;    --c-warn-soft:   252 238 213;
+  --c-danger: 176 42 42;   --c-danger-soft: 253 228 228;
+  --c-info:   29 86 160;   --c-info-soft:   224 236 251;
+
+  /* Издигане — стълбица, не два произволни shadow-а */
+  --e-xs:   0 1px 2px rgba(16,24,40,.05);
+  --e-sm:   0 1px 3px rgba(16,24,40,.07), 0 1px 2px rgba(16,24,40,.04);
+  --e-md:   0 4px 10px -2px rgba(16,24,40,.08), 0 2px 4px -2px rgba(16,24,40,.05);
+  --e-lg:   0 12px 20px -6px rgba(16,24,40,.10), 0 4px 8px -4px rgba(16,24,40,.06);
+  --e-xl:   0 24px 40px -12px rgba(16,24,40,.16), 0 8px 16px -8px rgba(16,24,40,.08);
+  --e-focus:0 0 0 3px rgba(21,128,61,.18);
 }
 
 .dark {
-  --bg-base:    #0d1117;
-  --bg-surface: #161b22;
-  --bg-raised:  #1c2433;
-  --bg-input:   #1c2433;
-  --border:     #30363d;
-  --border-mid: #3d444d;
-  --text-1:     #e6edf3;
-  --text-2:     #8b949e;
-  --text-3:     #656d76;
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.4);
-  --shadow-md:  0 4px 12px rgba(0,0,0,0.5);
+  --c-canvas:      13 17 23;
+  --c-surface:     22 27 34;
+  --c-raised:      28 34 43;
+  --c-sunken:      18 22 28;
+  --c-line:        44 52 62;
+  --c-line-strong: 61 70 82;
+
+  --c-ink:    230 237 243;
+  --c-ink-2:  150 160 172;
+  --c-ink-3:  106 116 128;
+
+  --c-brand:        52 180 100;
+  --c-brand-strong: 74 201 120;
+  --c-brand-soft:   17 48 31;
+  --c-brand-ink:    8 20 13;
+
+  --c-ok:     62 186 108;  --c-ok-soft:     16 46 29;
+  --c-warn:   214 146 36;  --c-warn-soft:   52 37 10;
+  --c-danger: 226 96 96;   --c-danger-soft: 54 23 23;
+  --c-info:   96 150 230;  --c-info-soft:   18 34 58;
+
+  --e-xs:   0 1px 2px rgba(0,0,0,.30);
+  --e-sm:   0 1px 3px rgba(0,0,0,.38), 0 1px 2px rgba(0,0,0,.24);
+  --e-md:   0 4px 10px -2px rgba(0,0,0,.45), 0 2px 4px -2px rgba(0,0,0,.30);
+  --e-lg:   0 12px 20px -6px rgba(0,0,0,.52), 0 4px 8px -4px rgba(0,0,0,.34);
+  --e-xl:   0 24px 40px -12px rgba(0,0,0,.62), 0 8px 16px -8px rgba(0,0,0,.42);
+  --e-focus:0 0 0 3px rgba(52,180,100,.26);
 }
 
 @layer base {
+  * { border-color: rgb(var(--c-line)); }
+
+  html { -webkit-tap-highlight-color: transparent; }
+
   body {
-    background-color: var(--bg-base);
-    color: var(--text-1);
-    @apply font-sans transition-colors duration-200;
+    background-color: rgb(var(--c-canvas));
+    color: rgb(var(--c-ink));
+    @apply font-sans text-base antialiased;
+    font-feature-settings: 'cv02' 1, 'cv03' 1, 'cv04' 1;
   }
+
+  /* Цифрите в таблици трябва да се подравняват в колона */
+  table, .tabular { font-variant-numeric: tabular-nums; }
+
+  h1 { @apply text-2xl font-semibold tracking-tight; }
+  h2 { @apply text-xl font-semibold tracking-tight; }
+  h3 { @apply text-lg font-semibold; }
+
+  /* Видим фокус навсякъде — иначе клавиатурната навигация е невъзможна */
+  :focus-visible {
+    outline: 2px solid rgb(var(--c-brand));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection { background: rgb(var(--c-brand) / .18); }
+
+  /* Скролбар, който не изглежда като системен артефакт */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--c-line-strong) / .7);
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-ink-3) / .6); background-clip: content-box; }
 }
 
 @layer components {
-  .btn { @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed; }
-  .btn-primary  { @apply btn bg-green-600 text-white hover:bg-green-700; }
-  .btn-secondary{ @apply btn; background-color: var(--bg-raised); color: var(--text-2); border: 1px solid var(--border); }
-  .btn-secondary:hover { background-color: var(--border); }
-  .btn-danger   { @apply btn bg-red-600 text-white hover:bg-red-700; }
+  /* Контейнер за хоризонтално скролиращи таблици — за да не скролира страницата */
+  .table-scroll { @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0; }
 
-  .card  { @apply rounded-xl p-4; background-color: var(--bg-surface); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
-  .badge { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium; }
-  .badge-green  { @apply badge bg-green-100  text-green-700  dark:bg-green-900/30  dark:text-green-400; }
-  .badge-yellow { @apply badge bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400; }
-  .badge-red    { @apply badge bg-red-100    text-red-700    dark:bg-red-900/30    dark:text-red-400; }
-  .badge-blue   { @apply badge bg-blue-100   text-blue-700   dark:bg-blue-900/30   dark:text-blue-400; }
-  .badge-gray   { @apply badge; background-color: var(--bg-raised); color: var(--text-2); }
-
-  .input { @apply w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500; background-color: var(--bg-input); border: 1px solid var(--border-mid); color: var(--text-1); }
-  .input::placeholder { color: var(--text-3); }
-  .label { @apply block text-sm font-medium mb-1; color: var(--text-2); }
+  .skeleton {
+    @apply relative overflow-hidden bg-sunken rounded;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(90deg, transparent, rgb(var(--c-surface) / .65), transparent);
+    animation: shimmer 1.4s infinite;
+    transform: translateX(-100%);
+  }
 }
 
-/* ── Dark mode overrides for inline Tailwind utility classes ────────────────── */
-.dark .bg-white        { background-color: #161b22 !important; }
-.dark .bg-gray-50,
-.dark .bg-slate-50     { background-color: #0d1117 !important; }
-.dark .bg-gray-100,
-.dark .bg-slate-100    { background-color: #1c2433 !important; }
-.dark .bg-gray-200,
-.dark .bg-slate-200    { background-color: #263246 !important; }
-
-.dark .text-gray-900,
-.dark .text-slate-900  { color: #e6edf3 !important; }
-.dark .text-gray-800,
-.dark .text-slate-800  { color: #cdd9e5 !important; }
-.dark .text-gray-700,
-.dark .text-slate-700  { color: #adbac7 !important; }
-.dark .text-gray-600,
-.dark .text-slate-600  { color: #768390 !important; }
-.dark .text-gray-500,
-.dark .text-slate-500  { color: #636e7b !important; }
-.dark .text-gray-400,
-.dark .text-slate-400  { color: #545d68 !important; }
-
-.dark .border-gray-100,
-.dark .border-slate-100,
-.dark .border-gray-200,
-.dark .border-slate-200 { border-color: #30363d !important; }
-.dark .border-gray-300,
-.dark .border-slate-300 { border-color: #3d444d !important; }
-
-.dark .divide-gray-100 > * + *,
-.dark .divide-gray-200 > * + *,
-.dark .divide-slate-100 > * + *,
-.dark .divide-slate-200 > * + * { border-color: #30363d !important; }
-
-.dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.5) !important; }
-.dark .shadow    { box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important; }
-.dark .shadow-md { box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important; }
-.dark .shadow-lg { box-shadow: 0 8px 28px rgba(0,0,0,0.5) !important; }
-
-/* inputs, selects, textareas */
-.dark input:not([type='range']):not([type='checkbox']):not([type='radio']),
-.dark select,
-.dark textarea {
-  background-color: #1c2433 !important;
-  border-color: #3d444d !important;
-  color: #e6edf3 !important;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
 }
-.dark input::placeholder,
-.dark textarea::placeholder { color: #636e7b !important; }
-.dark select option { background-color: #161b22; color: #e6edf3; }
 
-/* tables */
-.dark table { color: #cdd9e5; }
-.dark thead, .dark thead tr { background-color: #1c2433 !important; }
-.dark th { color: #8b949e !important; border-color: #30363d !important; }
-.dark td { border-color: #30363d !important; }
-.dark tr:hover { background-color: rgba(255,255,255,0.03) !important; }
-.dark .hover\:bg-gray-50:hover,
-.dark .hover\:bg-slate-50:hover  { background-color: rgba(255,255,255,0.03) !important; }
+/* ─────────────────────────────────────────────────────────────────────────────
+   Флотова карта — MapLibre + deck.gl
+   ───────────────────────────────────────────────────────────────────────── */
+.fleet-map { width: 100%; height: 100%; }
+.fleet-map .maplibregl-canvas { outline: none; }
 
-/* specific patterns */
-.dark .bg-green-50  { background-color: #0d2318 !important; }
-.dark .bg-blue-50   { background-color: #0d1f38 !important; }
-.dark .bg-yellow-50 { background-color: #1f1a0a !important; }
-.dark .bg-red-50    { background-color: #200d0d !important; }
+/* Контролите на MapLibre, облечени в токените на приложението */
+.fleet-map .maplibregl-ctrl-group {
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-line));
+  border-radius: 8px;
+  box-shadow: var(--e-md);
+  overflow: hidden;
+}
+.fleet-map .maplibregl-ctrl-group button + button { border-top: 1px solid rgb(var(--c-line)); }
+.fleet-map .maplibregl-ctrl-group button { width: 30px; height: 30px; }
+.fleet-map .maplibregl-ctrl-group button:hover { background: rgb(var(--c-raised)); }
+.fleet-map .maplibregl-ctrl-icon { filter: var(--map-ctrl-filter, none); }
+.dark .fleet-map .maplibregl-ctrl-icon { filter: invert(1) brightness(1.6); }
 
-.leaflet-container { border-radius: 0.75rem; }
+.fleet-map .maplibregl-ctrl-scale {
+  background: rgb(var(--c-surface) / .82);
+  border-color: rgb(var(--c-line-strong));
+  border-radius: 0 3px 3px 0;
+  color: rgb(var(--c-ink-2));
+  font-size: 10px;
+  font-weight: 600;
+}
+.fleet-map .maplibregl-ctrl-attrib {
+  background: rgb(var(--c-surface) / .8);
+  border-radius: 6px 0 0 0;
+  font-size: 10px;
+}
+.fleet-map .maplibregl-ctrl-attrib a { color: rgb(var(--c-ink-3)); }
+
+/* ── Камион ───────────────────────────────────────────────────────────── */
+.fleet-truck {
+  --truck-color: #22c55e;
+  position: relative;
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  cursor: pointer;
+}
+.fleet-truck__body {
+  position: relative; z-index: 2;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--truck-color);
+  color: #fff;
+  border: 2px solid rgb(var(--c-surface));
+  box-shadow: 0 2px 8px rgb(0 0 0 / .32);
+  transition: transform .45s cubic-bezier(.32,.72,0,1);
+}
+/* Пръстенът пулсира само когато машината реално се движи */
+.fleet-truck__pulse {
+  position: absolute; inset: 0; z-index: 1;
+  border-radius: 50%;
+  background: var(--truck-color);
+  opacity: 0;
+}
+.fleet-truck.is-moving .fleet-truck__pulse {
+  animation: fleet-pulse 2s cubic-bezier(.32,.72,0,1) infinite;
+}
+@keyframes fleet-pulse {
+  0%   { transform: scale(.85); opacity: .5; }
+  70%  { transform: scale(2.4);  opacity: 0; }
+  100% { transform: scale(2.4);  opacity: 0; }
+}
+.fleet-truck__plate {
+  position: absolute; top: calc(100% + 5px); left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 1px 6px; border-radius: 5px;
+  background: rgb(var(--c-surface) / .94);
+  border: 1px solid rgb(var(--c-line));
+  color: rgb(var(--c-ink));
+  font-size: 10px; font-weight: 700; letter-spacing: .02em;
+  white-space: nowrap;
+  box-shadow: var(--e-sm);
+  pointer-events: none;
+}
+
+/* ── Депо и база ──────────────────────────────────────────────────────── */
+.fleet-site, .fleet-hq {
+  width: 22px; height: 22px; border-radius: 6px;
+  display: grid; place-items: center;
+  color: #fff;
+  border: 2px solid rgb(var(--c-surface));
+  box-shadow: 0 2px 6px rgb(0 0 0 / .28);
+}
+.fleet-site { background: #7c3aed; }
+.fleet-hq   { background: rgb(var(--c-ink)); width: 24px; height: 24px; }
+.fleet-hq::after {
+  content: ''; width: 8px; height: 8px; border-radius: 2px;
+  background: rgb(var(--c-surface));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fleet-truck.is-moving .fleet-truck__pulse { animation: none; }
+  .fleet-truck__body { transition: none; }
+}

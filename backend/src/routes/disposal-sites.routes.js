@@ -1,10 +1,8 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
 // GET /api/disposal-sites - list all (active + inactive for management)
 router.get('/', authenticate, async (req, res) => {
   try {
@@ -14,6 +12,9 @@ router.get('/', authenticate, async (req, res) => {
     });
     res.json(sites);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -34,6 +35,9 @@ router.get('/:id', authenticate, async (req, res) => {
     if (!site) return res.status(404).json({ error: 'Депото не е намерено' });
     res.json(site);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -58,6 +62,9 @@ router.post('/', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res
     });
     res.status(201).json(site);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -107,6 +114,9 @@ router.delete('/:id', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req
     await prisma.disposalSite.delete({ where: { id: req.params.id } });
     res.json({ deleted: true, message: 'Депото е изтрито' });
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });

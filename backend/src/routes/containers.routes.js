@@ -1,16 +1,38 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const { validateBody, validateParamId } = require('../middleware/validate.middleware');
+const S = require('../validation/schemas');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
 // GET /api/containers/types - list all container types (public, no auth required by frontend)
 router.get('/types', async (req, res) => {
   try {
     const types = await prisma.containerType.findMany({ orderBy: { volumeM3: 'asc' } });
     res.json(types);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/containers/available — свободни контейнери, по желание от конкретен тип.
+// Диспечерът го ползва, за да избере кой контейнер да достави.
+router.get('/available', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
+  try {
+    const { containerTypeId } = req.query;
+    const where = { status: 'AVAILABLE', currentOrderId: null };
+    if (containerTypeId) where.containerTypeId = containerTypeId;
+    const containers = await prisma.container.findMany({
+      where, include: { containerType: true }, orderBy: { code: 'asc' }
+    });
+    res.json(containers);
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -27,6 +49,9 @@ router.get('/map', authenticate, async (req, res) => {
     });
     res.json(containers);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -44,6 +69,9 @@ router.get('/qr/:code', authenticate, async (req, res) => {
     if (!container) return res.status(404).json({ error: 'Контейнерът не е намерен' });
     res.json(container);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -63,6 +91,9 @@ router.get('/', authenticate, async (req, res) => {
     });
     res.json(containers);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -80,6 +111,9 @@ router.get('/:id', authenticate, async (req, res) => {
     if (!container) return res.status(404).json({ error: 'Контейнерът не е намерен' });
     res.json(container);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -100,6 +134,67 @@ router.patch('/:id/status', authenticate, authorize('ADMIN', 'DISPATCHER', 'DRIV
     });
     res.json(container);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// POST /api/containers — регистриране на нов контейнер в парка
+router.post('/', authenticate, authorize('ADMIN', 'DISPATCHER'), validateBody(S.createContainer), async (req, res) => {
+  try {
+    const container = await prisma.container.create({
+      data: req.body, include: { containerType: true }
+    });
+    res.status(201).json(container);
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Контейнер с този код или QR вече съществува' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/containers/:id/assign — свързва контейнер със заявка (или го отвързва при null).
+// Това е липсващото звено: без него жизненият цикъл на контейнера няма какво да движи.
+router.patch('/:id/assign', validateParamId(), authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
+  try {
+    const { orderId } = req.body;
+
+    const container = await prisma.container.findUnique({ where: { id: req.params.id } });
+    if (!container) return res.status(404).json({ error: 'Контейнерът не е намерен' });
+
+    if (orderId === null || orderId === undefined) {
+      const freed = await prisma.container.update({
+        where: { id: container.id },
+        data: { currentOrderId: null, status: 'AVAILABLE' },
+        include: { containerType: true }
+      });
+      return res.json(freed);
+    }
+
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) return res.status(404).json({ error: 'Заявката не е намерена' });
+    if (order.orderType !== 'CONTAINER') {
+      return res.status(400).json({ error: 'Само контейнерна заявка може да получи контейнер' });
+    }
+
+    const taken = await prisma.container.findUnique({ where: { currentOrderId: orderId } });
+    if (taken && taken.id !== container.id) {
+      return res.status(409).json({ error: `Заявката вече има контейнер ${taken.code}` });
+    }
+    if (container.currentOrderId && container.currentOrderId !== orderId) {
+      return res.status(409).json({ error: 'Контейнерът вече е зает по друга заявка' });
+    }
+
+    const updated = await prisma.container.update({
+      where: { id: container.id },
+      data: { currentOrderId: orderId },
+      include: { containerType: true, order: { include: { client: true } } }
+    });
+    res.json(updated);
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Този контейнер вече е зает' });
     res.status(500).json({ error: err.message });
   }
 });

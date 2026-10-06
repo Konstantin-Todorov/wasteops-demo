@@ -18,15 +18,20 @@
 - Trucks, Clients, DisposalSites CRUD
 - Driver PWA: маршрут, потвърждение на спирки, issue reporting, QR скенер
 
-### Критични бъгове 🔴
+### Критични бъгове — ✅ поправени 2026-08-19
 
-| # | Проблем | Файл | Ефект |
-|---|---------|------|-------|
-| 1 | `GET /orders?status=CONFIRMED,DELIVERY_SCHEDULED,...` — бекендът прави `where.status = "CONFIRMED,..."` (единичен стринг), не масив | `orders.routes.js:50`, `OrdersManager.jsx:65` | Таб "Активни" показва 0 резултати |
-| 2 | Invoice amount е хардкоднат: `volumeM3 × 50 BGN` | `invoices.routes.js` | Всички фактури са грешни |
-| 3 | `Invoice.totalAmount` — CLAUDE.md споменава `totalAmount` но схемата има `amount`. Notifications route може да търси грешното поле | `notifications.routes.js` | Overdue фактури може да не се засичат |
-| 4 | Trip create: `stopType` е винаги `DELIVERY` за CONTAINER или `LOAD` за GARBAGE_TRUCK — никога не се създава `PICKUP` стоп за вземане на пълен контейнер | `trips.routes.js:POST` | Контейнерният workflow е непълен |
-| 5 | Container не се свързва с order при създаване — `container.currentOrderId` остава null | `orders.routes.js:POST` | Контейнерното проследяване не работи |
+| # | Проблем | Файл | Статус |
+|---|---------|------|--------|
+| 1 | `GET /orders?status=A,B,C` третираше стринга като една enum стойност | `orders.routes.js:50` | ✅ `{ in: statuses }` |
+| 2 | Invoice amount хардкоднат `volumeM3 × 50` | `invoices.routes.js:70` | ✅ от `CompanySettings.pricePerM3` / `pricePerTon` + `items` JSON |
+| 3 | `inv.totalAmount` — полето не съществува в схемата, рендерираше `undefined` | `notifications.routes.js:90` | ✅ → `inv.amount` |
+| 4 | `stopType` винаги `DELIVERY`/`LOAD` — `PICKUP` никога не се създаваше | `trips.routes.js` | ✅ `resolveStopType()` по статуса на заявката |
+| 5 | Контейнерът не следваше спирките | `trips.routes.js` | ✅ DELIVERY→`DEPLOYED` · PICKUP→`IN_TRANSIT` · unload→`AVAILABLE` |
+| 6 | DELIVERY завършваше в `CONTAINER_DELIVERED`, но `/container-full` изискваше `AWAITING_FILL` — бутонът на клиента не работеше | `trips.routes.js` | ✅ DELIVERY → `AWAITING_FILL` |
+
+**Остава от Sprint 1:** избор на контейнер при планиране на курс (попълва `Container.currentOrderId`). Без него транзициите по т.5 нямат какво да движат. Планирано за Етап 3 в `TECHNICAL_ROADMAP.md`.
+
+> ⚠️ Този файл покрива **демо → production**. За пълния обхват по техническото задание виж **`TECHNICAL_ROADMAP.md`** — той има предимство при конфликт.
 
 ---
 
@@ -360,3 +365,36 @@ Production waste management SaaS платформи (AMCS, CurbWaste, RouteOptix
 4. **Real-time ETA** — клиентът вижда "Камионът е на ~15 мин"
 5. **Contract management** — корпоративните клиенти имат договор с фиксирана цена
 6. **Route history** — пълен RouteLog за всеки курс (имаме модела, не записваме)
+
+---
+
+## Изпълнено на 2026-10-06 — одит и UI/UX
+
+### Бекенд
+- Нови endpoint-и: `POST /trips/:id/stops` · `DELETE /trips/:id` · `PATCH /invoices/:id/send` · `/cancel` · `PATCH /users/:id/reset-password` · `DELETE /users/:id` · `DELETE /clients/:id` · `DELETE /trucks/:id` · `POST /containers` · `GET /containers/available` · **`PATCH /containers/:id/assign`**
+- Валидация със `zod` върху всички входове — координатите се ограничават до границите на България
+- `helmet`, rate limiting (20 опита за вход / 15 мин), ограничен CORS в production
+- Prisma кодовете за грешка се превеждат: P2025 → 404, P2002 → 409, P2003 → 409
+- Непознат `/api` път връща JSON, а не HTML-а на SPA-то
+- Централен error handler — без stack trace към клиента в production
+- `backend/test/e2e.js` — 81 проверки, `npm run test:e2e`
+
+### Фронтенд
+- **VRP оптимизацията беше недостъпна** — `Dashboard.jsx` не беше рутван никъде. Вързан на `/dispatcher/optimize` с връзка в менюто.
+- `Orders.jsx` изтрит (мъртъв код със стари малки статуси)
+- 319 емоджита премахнати от 26 файла, заменени с `lucide-react` икони
+- 18 `alert()`/`confirm()` заменени с toast и промис-базиран диалог
+- Дизайн система с токени, UI кит, Inter + IBM Plex Mono вградени
+- 1 655 хардкоднати класа мигрирани към токени в 28 файла
+- Контрастът на брандовите бутони в тъмна тема поправен в 16 файла
+
+### Проверено
+- 81/81 бекенд проверки минават
+- Трите портала, 21 екрана — нула console грешки
+- Нула хоризонтален скрол на 390px
+- Нула емоджита, нула `alert()`, нула хардкоднати цветове извън сайдбара
+
+### Остава
+- Избор на контейнер в интерфейса при планиране на курс — бекендът (`PATCH /containers/:id/assign`) е готов, UI-ът липсва. **Без него контейнерните преходи нямат какво да движат.**
+- Миграция на екраните към компонентите от UI кита (сега ползват токени, но със собствена разметка)
+- Pagination на списъчните endpoint-и

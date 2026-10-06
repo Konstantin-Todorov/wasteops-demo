@@ -1,10 +1,10 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const { validateBody, validateParamId } = require('../middleware/validate.middleware');
+const S = require('../validation/schemas');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
 // GET /api/trips - list all trips
 router.get('/', authenticate, async (req, res) => {
   try {
@@ -41,6 +41,9 @@ router.get('/', authenticate, async (req, res) => {
     }
     res.json(trips);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -68,6 +71,9 @@ router.get('/today', authenticate, async (req, res) => {
     });
     res.json(trips);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -90,6 +96,9 @@ router.get('/:id', authenticate, async (req, res) => {
     if (!trip) return res.status(404).json({ error: 'Маршрутът не е намерен' });
     res.json(trip);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -113,6 +122,9 @@ router.patch('/:id/status', authenticate, authorize('ADMIN', 'DISPATCHER', 'DRIV
 
     res.json(trip);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -143,11 +155,20 @@ router.post('/:id/unload', authenticate, authorize('ADMIN', 'DISPATCHER', 'DRIVE
       data: { status: 'PENDING_VERIFICATION' }
     });
 
+    // Разтоварените контейнери се освобождават обратно в наличност.
+    await prisma.container.updateMany({
+      where: { currentOrderId: { in: orderIds }, status: 'IN_TRANSIT' },
+      data: { status: 'AVAILABLE', currentOrderId: null, currentLat: null, currentLng: null }
+    });
+
     const { io } = require('../index');
     io.emit('trip_unloaded', { tripId: trip.id });
 
     res.json(trip);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -184,6 +205,8 @@ router.patch('/:id/stops/reorder', authenticate, authorize('ADMIN', 'DISPATCHER'
         disposalSite: true
       }
     });
+    await require('../services/route-cache.service').invalidateTripRoute(req.params.id);
+
     res.json(updated);
   } catch (err) {
     console.error('Reorder error:', err.message, err.meta);
@@ -210,16 +233,43 @@ router.patch('/:id/stops/:stopId', authenticate, authorize('DRIVER', 'DISPATCHER
     // Update order status on stop completion
     if (status === 'COMPLETED') {
       const stopType = stop.stopType;
+      // DELIVERY → контейнерът е оставен и чака напълване (клиентът може да сигнализира).
+      // PICKUP/LOAD → отпадъкът е на камиона и пътува към депото.
       let newOrderStatus = null;
-      if (stopType === 'DELIVERY') newOrderStatus = 'CONTAINER_DELIVERED';
-      else if (stopType === 'PICKUP') newOrderStatus = 'IN_TRANSIT';
-      else if (stopType === 'LOAD') newOrderStatus = 'IN_TRANSIT';
+      let eventType = null;
+      if (stopType === 'DELIVERY')    { newOrderStatus = 'AWAITING_FILL'; eventType = 'container_delivered'; }
+      else if (stopType === 'PICKUP') { newOrderStatus = 'IN_TRANSIT';    eventType = 'container_picked_up'; }
+      else if (stopType === 'SWAP')   { newOrderStatus = 'IN_TRANSIT';    eventType = 'container_swapped'; }
+      else if (stopType === 'LOAD')   { newOrderStatus = 'IN_TRANSIT';    eventType = 'waste_loaded'; }
 
       if (newOrderStatus) {
         await prisma.order.update({
           where: { id: stop.orderId },
-          data: { status: newOrderStatus }
+          data: {
+            status: newOrderStatus,
+            events: { create: { eventType, userId: req.user.id, lat: stop.lat, lng: stop.lng } }
+          }
         });
+      }
+
+      // Контейнерът следва спирката: оставен → DEPLOYED на адреса, вдигнат → IN_TRANSIT.
+      // Връзката се пази на Container.currentOrderId (задава се при планиране на курса).
+      const container = await prisma.container.findUnique({ where: { currentOrderId: stop.orderId } });
+      if (container) {
+        if (stopType === 'DELIVERY') {
+          await prisma.container.update({
+            where: { id: container.id },
+            data: { status: 'DEPLOYED', currentLat: stop.lat, currentLng: stop.lng }
+          });
+        } else if (stopType === 'PICKUP' || stopType === 'SWAP') {
+          // При размяна пълният тръгва към депото. Празният, който остава на
+          // негово място, се заделя от диспечера при планирането на следващата
+          // заявка за този адрес — затова тук само освобождаваме връзката.
+          await prisma.container.update({
+            where: { id: container.id },
+            data: { status: 'IN_TRANSIT', ...(stopType === 'SWAP' ? { currentOrderId: null } : {}) }
+          });
+        }
       }
     }
 
@@ -228,12 +278,34 @@ router.patch('/:id/stops/:stopId', authenticate, authorize('DRIVER', 'DISPATCHER
 
     res.json(stop);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
 
+// Определя типа на спирката според вида на заявката И къде е тя в жизнения си цикъл.
+// Контейнерна заявка минава през ДВЕ спирки: DELIVERY (оставяне на празен) и
+// по-късно PICKUP (вземане на пълния). Преди тази поправка PICKUP никога не се създаваше.
+const AWAITING_PICKUP_STATUSES = ['CONTAINER_DELIVERED', 'AWAITING_FILL', 'PICKUP_SCHEDULED'];
+
+function resolveStopType(order, opts = {}) {
+  if (order.orderType === 'GARBAGE_TRUCK') return 'LOAD';
+  // Размяна: пълният контейнер се взема и празен се оставя в едно движение.
+  // Спестява цял курс и е основна операция при мултилифт/скип.
+  if (opts.swap && AWAITING_PICKUP_STATUSES.includes(order.status)) return 'SWAP';
+  return AWAITING_PICKUP_STATUSES.includes(order.status) ? 'PICKUP' : 'DELIVERY';
+}
+
+function resolveScheduledStatus(stopType) {
+  if (stopType === 'PICKUP' || stopType === 'SWAP') return 'PICKUP_SCHEDULED';
+  if (stopType === 'DELIVERY') return 'DELIVERY_SCHEDULED';
+  return 'SCHEDULED';
+}
+
 // POST /api/trips — create a new trip from selected orders
-router.post('/', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
+router.post('/', authenticate, authorize('ADMIN', 'DISPATCHER'), validateBody(S.createTrip), async (req, res) => {
   try {
     const { truckId, date, orderIds, disposalSiteId } = req.body;
     if (!truckId || !orderIds || orderIds.length === 0) {
@@ -254,7 +326,7 @@ router.post('/', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res
         stops: {
           create: orders.map((o, i) => ({
             orderId: o.id,
-            stopType: o.orderType === 'CONTAINER' ? 'DELIVERY' : 'LOAD',
+            stopType: resolveStopType(o),
             sequence: i + 1,
             lat: o.lat,
             lng: o.lng,
@@ -269,14 +341,17 @@ router.post('/', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res
       }
     });
 
-    // Update order statuses
+    // Update order statuses — съобразено с реалния тип на спирката
     for (const o of orders) {
-      const newStatus = o.orderType === 'CONTAINER' ? 'DELIVERY_SCHEDULED' : 'SCHEDULED';
+      const newStatus = resolveScheduledStatus(resolveStopType(o));
       await prisma.order.update({ where: { id: o.id }, data: { status: newStatus } }).catch(() => {});
     }
 
     res.status(201).json(trip);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -298,6 +373,9 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req,
     });
     res.json(trip);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -308,6 +386,9 @@ router.delete('/:id/stops/:stopId', authenticate, authorize('ADMIN', 'DISPATCHER
     await prisma.tripStop.delete({ where: { id: req.params.stopId } });
     res.json({ deleted: true });
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -344,6 +425,7 @@ router.get('/:id/route', authenticate, async (req, res) => {
     if (!trip) return res.status(404).json({ error: 'Курсът не е намерен' });
 
     const { getRoute } = require('../services/osrm.service');
+    const { getTripRoute } = require('../services/route-cache.service');
     const HQ = { lat: 43.861917, lng: 26.034763 };
 
     const stopPoints = trip.stops.map(s => ({
@@ -357,7 +439,7 @@ router.get('/:id/route', authenticate, async (req, res) => {
 
     // 1. Current sequence (manual or original VRP order from DB)
     const currentPoints = [HQ, ...stopPoints, HQ];
-    const current = await getRoute(currentPoints);
+    const current = await getTripRoute(trip.id, currentPoints);
 
     // 2. VRP nearest-neighbor reoptimization (ignores manual priority, purely geographic)
     const vrpOrdered = nearestNeighborOrder(stopPoints, HQ);
@@ -426,6 +508,97 @@ router.get('/:id/route', authenticate, async (req, res) => {
       isSingleStop:       stopPoints.length <= 1,
     });
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/trips/:id/stops — добавяне на заявка към вече създаден курс
+router.post('/:id/stops', validateParamId(), authenticate, authorize('ADMIN', 'DISPATCHER'),
+  validateBody(S.addStop), async (req, res) => {
+  try {
+    const { orderId, priority, swap } = req.body;
+
+    const trip = await prisma.trip.findUnique({
+      where: { id: req.params.id },
+      include: { stops: { orderBy: { sequence: 'desc' }, take: 1 } }
+    });
+    if (!trip) return res.status(404).json({ error: 'Курсът не е намерен' });
+    if (['COMPLETED', 'CANCELLED'].includes(trip.status)) {
+      return res.status(400).json({ error: 'Приключен курс не може да се променя' });
+    }
+
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) return res.status(404).json({ error: 'Заявката не е намерена' });
+
+    const already = await prisma.tripStop.findFirst({ where: { tripId: trip.id, orderId } });
+    if (already) return res.status(409).json({ error: 'Заявката вече е в този курс' });
+
+    const stopType = resolveStopType(order, { swap });
+    const nextSeq = (trip.stops[0]?.sequence || 0) + 1;
+
+    const stop = await prisma.tripStop.create({
+      data: {
+        tripId: trip.id, orderId, stopType, sequence: nextSeq,
+        priority: priority || false,
+        lat: order.lat, lng: order.lng, address: order.address, status: 'PENDING',
+      },
+      include: { order: { include: { client: true } } }
+    });
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { status: resolveScheduledStatus(stopType) }
+    });
+
+    // спирките се смениха — кешираната геометрия вече не е валидна
+    await require('../services/route-cache.service').invalidateTripRoute(trip.id);
+
+    const { io } = require('../index');
+    io.emit('trip_updated', { tripId: trip.id });
+
+    res.status(201).json(stop);
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/trips/:id — отмяна на курс; заявките се връщат в предишното си състояние
+router.delete('/:id', validateParamId(), authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
+  try {
+    const trip = await prisma.trip.findUnique({
+      where: { id: req.params.id },
+      include: { stops: { include: { order: true } } }
+    });
+    if (!trip) return res.status(404).json({ error: 'Курсът не е намерен' });
+    if (trip.status !== 'PLANNED') {
+      return res.status(400).json({ error: 'Може да се отменя само курс в статус „Планиран“' });
+    }
+
+    // Връщаме всяка заявка там, откъдето е дошла: тези за вземане се
+    // връщат в AWAITING_FILL, останалите — в CONFIRMED.
+    for (const stop of trip.stops) {
+      const back = stop.stopType === 'PICKUP' ? 'AWAITING_FILL' : 'CONFIRMED';
+      await prisma.order.update({ where: { id: stop.orderId }, data: { status: back } }).catch(() => {});
+    }
+
+    await prisma.tripStop.deleteMany({ where: { tripId: trip.id } });
+    await prisma.routeLog.deleteMany({ where: { tripId: trip.id } });
+    await prisma.trip.delete({ where: { id: trip.id } });
+
+    const { io } = require('../index');
+    io.emit('trip_deleted', { tripId: trip.id });
+
+    res.json({ ok: true, releasedOrders: trip.stops.length });
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });

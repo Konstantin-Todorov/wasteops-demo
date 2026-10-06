@@ -6,6 +6,7 @@ import './index.css';
 import Login from './components/shared/Login';
 import DevLogin from './components/shared/DevLogin';
 import { AuthProvider, useAuth } from './lib/auth';
+import { ToastProvider } from './components/ui';
 
 import DispatcherApp from './portals/dispatcher/DispatcherApp';
 import ClientApp from './portals/client/ClientApp';
@@ -34,6 +35,7 @@ function ProtectedRoute({ children, roles }) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <AuthProvider>
+    <ToastProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -58,5 +60,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         } />
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
   </AuthProvider>
 );

@@ -1,0 +1,41 @@
+# Logix landing — Apache config
+
+# Force HTTPS + non-www
+RewriteEngine On
+RewriteCond %{HTTPS} off [OR]
+RewriteCond %{HTTP_HOST} ^www\. [NC]
+RewriteRule ^ https://logix.bg%{REQUEST_URI} [L,R=301]
+
+# API → PHP (формата вика /api/leads; PHP пише в CSV и праща имейла)
+RewriteRule ^api/leads$ lead.php [L]
+RewriteRule ^api/leads\.csv$ export.php [L]
+
+# Correct MIME types
+AddType video/mp4 .mp4
+AddType image/svg+xml .svg
+AddType application/manifest+json .webmanifest
+
+# Compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+# Caching: hashed assets forever, media long, html always fresh
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/png "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType video/mp4 "access plus 1 month"
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+ErrorDocument 404 /index.html

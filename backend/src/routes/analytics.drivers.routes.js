@@ -1,10 +1,8 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
 // GET /api/analytics/drivers — per-driver performance stats
 router.get('/drivers', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
   try {

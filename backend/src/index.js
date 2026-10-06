@@ -5,9 +5,9 @@ const path = require('path');
 const fs = require('fs');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
-
 const { runMigrations } = require('./migrate');
 const { main: runSeed } = require('../seed/seed');
 
@@ -29,6 +29,7 @@ const usersRoutes = require('./routes/users.routes');
 const notificationsRoutes = require('./routes/notifications.routes');
 
 const { setupSimulation } = require('./services/simulation.service');
+const prisma = require('./lib/prisma');
 
 const app = express();
 const server = http.createServer(app);
@@ -36,8 +37,28 @@ const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-app.use(cors());
-app.use(express.json());
+const isProd = process.env.NODE_ENV === 'production';
+
+// Security headers. CSP остава изключен — фронтендът се сервира от същия
+// процес и Leaflet/OSRM теглят ресурси от чужди домейни.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+// В production CORS се ограничава до реалния домейн; в разработка е отворен.
+const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+app.use(cors(isProd && allowedOrigins.length ? { origin: allowedOrigins, credentials: true } : {}));
+
+app.use(express.json({ limit: '2mb' }));
+
+// Логинът е най-атакуваната точка — държим го на строг лимит.
+app.use('/api/auth', rateLimit({
+  windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Твърде много опити за вход. Опитайте след 15 минути.' },
+}));
+app.use('/api', rateLimit({
+  windowMs: 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Твърде много заявки. Опитайте отново след малко.' },
+}));
+
 app.use('/uploads', express.static('uploads'));
 
 app.use('/api/auth', authRoutes);
@@ -56,8 +77,20 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', async (req, res) => {
+  // Маршрутизацията по пътища е критична — ако падне, километрите и следите
+  // стават грешни, затова статусът ѝ се вижда тук.
+  const { checkOsrm } = require('./services/osrm.service');
+  const routing = await checkOsrm().catch(e => ({ ok: false, error: e.message }));
+  res.json({ status: 'ok', routing });
+});
 app.use('/dev-login', devLoginRoutes);
+
+// Непознат API път връща JSON, а не HTML-а на SPA-то — иначе фронтендът
+// получава „<!DOCTYPE" вместо грешка и хвърля неясен JSON parse error.
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `Няма такъв път: ${req.method} ${req.originalUrl}` });
+});
 
 const spaPath = path.join(__dirname, '../dist');
 if (fs.existsSync(spaPath)) {
@@ -66,6 +99,16 @@ if (fs.existsSync(spaPath)) {
     res.sendFile(path.join(spaPath, 'index.html'));
   });
 }
+
+// Централен error handler. В production не изнасяме stack trace към клиента.
+app.use((err, req, res, next) => {
+  console.error(`[error] ${req.method} ${req.originalUrl}`, err);
+  if (res.headersSent) return next(err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    error: isProd && status >= 500 ? 'Вътрешна грешка на сървъра' : (err.message || 'Грешка'),
+  });
+});
 
 async function seedIfEmpty(prisma) {
   const count = await prisma.user.count();
@@ -94,8 +137,7 @@ async function seedAdmin(prisma) {
 async function start() {
   await runMigrations();
 
-  const prisma = new PrismaClient();
-  await seedIfEmpty(prisma);
+    await seedIfEmpty(prisma);
   await seedAdmin(prisma);
   await prisma.$disconnect();
 

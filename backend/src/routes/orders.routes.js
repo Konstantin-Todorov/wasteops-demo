@@ -1,10 +1,11 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const { validateBody, validateQuery, validateParamId } = require('../middleware/validate.middleware');
+const S = require('../validation/schemas');
+const { z } = require('zod');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
 // GET /api/orders/stats - aggregate stats for BI (must be before /:id)
 router.get('/stats', authenticate, authorize('ADMIN', 'DISPATCHER', 'ACCOUNTANT'), async (req, res) => {
   try {
@@ -28,12 +29,17 @@ router.get('/stats', authenticate, authorize('ADMIN', 'DISPATCHER', 'ACCOUNTANT'
       recentActivity
     });
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
 
 // GET /api/orders - list with filters
-router.get('/', authenticate, async (req, res) => {
+router.get('/', authenticate,
+  validateQuery({ status: S.statusCsv(S.ORDER_STATUS), clientId: S.uuid, type: z.enum(['CONTAINER','GARBAGE_TRUCK']) }),
+  async (req, res) => {
   try {
     const { role, clientId: userClientId } = req.user;
     const { status, clientId, type } = req.query;
@@ -48,7 +54,7 @@ router.get('/', authenticate, async (req, res) => {
     }
 
     if (status) {
-      const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+      const statuses = req.validated.status;
       where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
     }
     if (type) where.orderType = type;
@@ -65,12 +71,15 @@ router.get('/', authenticate, async (req, res) => {
     });
     res.json(orders);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
 
 // GET /api/orders/:id - detail with events, stops
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', validateParamId(), authenticate, async (req, res) => {
   try {
     const order = await prisma.order.findUnique({
       where: { id: req.params.id },
@@ -99,12 +108,15 @@ router.get('/:id', authenticate, async (req, res) => {
 
     res.json(order);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
 
 // POST /api/orders - create
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticate, validateBody(S.createOrder), async (req, res) => {
   try {
     const { role, clientId: userClientId, id: userId } = req.user;
     const body = { ...req.body };
@@ -133,12 +145,15 @@ router.post('/', authenticate, async (req, res) => {
     });
     res.status(201).json(order);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
 
 // PATCH /api/orders/:id - general update (edit fields)
-router.patch('/:id', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
+router.patch('/:id', validateParamId(), authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
   try {
     const { requestedDate, notes, address, lat, lng, wasteType, volumeM3, estimatedKg, paymentMethod } = req.body;
     const data = {};
@@ -159,12 +174,15 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req,
     });
     res.json(order);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
 
 // PATCH /api/orders/:id/confirm - admin confirms
-router.patch('/:id/confirm', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
+router.patch('/:id/confirm', validateParamId(), authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
   try {
     const { id: userId } = req.user;
     const { notes } = req.body;
@@ -182,12 +200,15 @@ router.patch('/:id/confirm', authenticate, authorize('ADMIN', 'DISPATCHER'), asy
     });
     res.json(order);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
 
 // PATCH /api/orders/:id/cancel - cancel
-router.patch('/:id/cancel', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
+router.patch('/:id/cancel', validateParamId(), authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
   try {
     const { id: userId } = req.user;
     const { notes } = req.body;
@@ -205,20 +226,23 @@ router.patch('/:id/cancel', authenticate, authorize('ADMIN', 'DISPATCHER'), asyn
     });
     res.json(order);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
 
 // PATCH /api/orders/:id/container-full - client marks container full
-router.patch('/:id/container-full', authenticate, async (req, res) => {
+router.patch('/:id/container-full', validateParamId(), authenticate, async (req, res) => {
   try {
     const { id: userId } = req.user;
     const { notes, lat, lng } = req.body;
 
     const existing = await prisma.order.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: 'Заявката не е намерена' });
-    if (existing.status !== 'AWAITING_FILL') {
-      return res.status(400).json({ error: 'Заявката не е в статус AWAITING_FILL' });
+    if (!['AWAITING_FILL', 'CONTAINER_DELIVERED'].includes(existing.status)) {
+      return res.status(400).json({ error: 'Контейнерът още не е доставен на адреса' });
     }
 
     const order = await prisma.order.update({
@@ -234,12 +258,15 @@ router.patch('/:id/container-full', authenticate, async (req, res) => {
     });
     res.json(order);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
 
 // PATCH /api/orders/:id/verify - admin verifies unloading
-router.patch('/:id/verify', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
+router.patch('/:id/verify', validateParamId(), authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res) => {
   try {
     const { id: userId } = req.user;
     const { notes } = req.body;
@@ -263,6 +290,9 @@ router.patch('/:id/verify', authenticate, authorize('ADMIN', 'DISPATCHER'), asyn
     });
     res.json(order);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });

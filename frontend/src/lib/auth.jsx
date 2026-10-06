@@ -4,10 +4,22 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('wo_user');
-    return stored ? JSON.parse(stored) : null;
+    // Повреден или чужд запис в localStorage не бива да събаря приложението —
+    // JSON.parse('undefined') хвърля и целият React tree пада на бял екран.
+    try {
+      const stored = localStorage.getItem('wo_user');
+      if (!stored || stored === 'undefined' || stored === 'null') return null;
+      return JSON.parse(stored);
+    } catch {
+      localStorage.removeItem('wo_user');
+      localStorage.removeItem('wo_token');
+      return null;
+    }
   });
-  const [token, setToken] = useState(() => localStorage.getItem('wo_token') || null);
+  const [token, setToken] = useState(() => {
+    const t = localStorage.getItem('wo_token');
+    return t && t !== 'undefined' ? t : null;
+  });
 
   async function login(email, password) {
     const res = await fetch('/api/auth/login', {
@@ -15,8 +27,9 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Грешка при вход');
+    if (!data.token || !data.user) throw new Error('Сървърът върна непълен отговор');
     localStorage.setItem('wo_token', data.token);
     localStorage.setItem('wo_user', JSON.stringify(data.user));
     setToken(data.token);

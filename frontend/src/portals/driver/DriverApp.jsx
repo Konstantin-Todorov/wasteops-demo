@@ -19,15 +19,15 @@ export default function DriverApp() {
   function handleLogout() { logout(); navigate('/login'); }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50">
+    <div className="h-screen flex flex-col bg-raised">
       {/* Header */}
       <header className="bg-slate-800 text-white px-4 py-3 flex items-center gap-3 flex-shrink-0">
         <img src="/logo-dark.png" alt="Logix" className="w-8 h-8 flex-shrink-0" />
         <div className="flex-1">
           <p className="font-bold text-sm leading-tight">Logix — Шофьор</p>
-          <p className="text-slate-400 text-xs">{user?.name}</p>
+          <p className="text-ink-3 text-xs">{user?.name}</p>
         </div>
-        <button onClick={handleLogout} className="text-slate-400 hover:text-white transition-colors">
+        <button onClick={handleLogout} className="text-ink-3 hover:text-white transition-colors">
           <LogOut className="w-4 h-4" />
         </button>
       </header>
@@ -44,12 +44,12 @@ export default function DriverApp() {
       </main>
 
       {/* Bottom navigation */}
-      <nav className="flex bg-white border-t border-slate-200 flex-shrink-0">
+      <nav className="flex bg-surface border-t border-line flex-shrink-0">
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs font-medium transition-colors ${
-                isActive ? 'text-green-600 bg-green-50' : 'text-slate-500 hover:text-slate-700'
+                isActive ? 'text-brand bg-brand-soft' : 'text-ink-2 hover:text-ink'
               }`
             }
           >

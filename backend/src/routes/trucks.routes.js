@@ -1,10 +1,9 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const { validateParamId } = require('../middleware/validate.middleware');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
 router.get('/', authenticate, async (req, res) => {
   try {
     const trucks = await prisma.truck.findMany({
@@ -12,6 +11,9 @@ router.get('/', authenticate, async (req, res) => {
     });
     res.json(trucks);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -24,6 +26,9 @@ router.get('/my', authenticate, authorize('DRIVER'), async (req, res) => {
     });
     res.json(truck);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -62,6 +67,9 @@ router.post('/', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req, res
     });
     res.status(201).json(truck);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -74,6 +82,9 @@ router.patch('/:id/status', authenticate, authorize('ADMIN', 'DISPATCHER'), asyn
     });
     res.json(truck);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -111,6 +122,40 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'DISPATCHER'), async (req,
     });
     res.json(truck);
   } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/trucks/:id — камион с курсове се маркира в сервиз вместо да се трие
+router.delete('/:id', validateParamId(), authenticate, authorize('ADMIN'), async (req, res) => {
+  try {
+    const truck = await prisma.truck.findUnique({
+      where: { id: req.params.id },
+      include: { trips: { take: 1 }, driver: true }
+    });
+    if (!truck) return res.status(404).json({ error: 'Камионът не е намерен' });
+
+    const active = await prisma.trip.count({
+      where: { truckId: truck.id, status: { in: ['PLANNED', 'IN_PROGRESS', 'AT_DISPOSAL'] } }
+    });
+    if (active) return res.status(409).json({ error: `Камионът има ${active} активни курса` });
+
+    if (truck.trips.length) {
+      await prisma.truck.update({
+        where: { id: truck.id }, data: { status: 'MAINTENANCE', driverId: null }
+      });
+      return res.json({ ok: true, mode: 'retired', message: 'Камионът има история — изведен е от експлоатация' });
+    }
+
+    await prisma.truck.delete({ where: { id: truck.id } });
+    res.json({ ok: true, mode: 'deleted' });
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Записът не е намерен' });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Вече съществува запис с тази стойност' });
+    if (err.code === 'P2003') return res.status(409).json({ error: 'Записът е свързан с други данни' });
     res.status(500).json({ error: err.message });
   }
 });

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "company_settings" ADD COLUMN     "price_per_m3" DOUBLE PRECISION NOT NULL DEFAULT 50,
+ADD COLUMN     "price_per_ton" DOUBLE PRECISION NOT NULL DEFAULT 50;

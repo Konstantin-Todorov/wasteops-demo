@@ -1,10 +1,8 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const prisma = require('../lib/prisma');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
 // GET /api/notifications — aggregate recent events into a notification list
 router.get('/', authenticate, authorize('ADMIN', 'DISPATCHER', 'ACCOUNTANT'), async (req, res) => {
   try {
@@ -87,7 +85,7 @@ router.get('/', authenticate, authorize('ADMIN', 'DISPATCHER', 'ACCOUNTANT'), as
         type: 'invoice',
         priority: 'high',
         title: 'Просрочена фактура',
-        message: `${inv.client?.name} — ${inv.totalAmount} лв., падеж ${new Date(inv.dueDate).toLocaleDateString('bg-BG')}`,
+        message: `${inv.client?.name} — ${inv.amount} лв., падеж ${new Date(inv.dueDate).toLocaleDateString('bg-BG')}`,
         meta: `#${inv.invoiceNumber || inv.id.slice(0, 8)}`,
         createdAt: inv.dueDate,
         link: '/dispatcher/invoices',

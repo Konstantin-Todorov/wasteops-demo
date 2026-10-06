@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
-import {
-  LayoutDashboard, ClipboardList, Map, Truck, Users,
-  FileText, BookOpen, LogOut, Menu, X, UserCheck, Wrench, Settings, Factory,
-  Sun, Moon,
-} from 'lucide-react';
+import { BookOpen, ClipboardList, Factory, FileText, LayoutDashboard, LogOut, Map, Menu, Moon, Settings, Sparkles, Sun, Truck, UserCheck, Users, Wrench, X } from 'lucide-react';
 import GuideContent from '../../pages/GuidePage';
 import NotificationBell from './NotificationBell';
 
 import DashboardBI from './DashboardBI';
+import RouteOptimizer from './Dashboard';
+import FleetView from './FleetView';
 import OrdersManager from './OrdersManager';
 import LiveMap from './LiveMap';
 import Trips from './Trips';
@@ -29,6 +27,7 @@ const NAV = [
   { to: '/dispatcher/orders',         label: 'Заявки',   icon: ClipboardList },
   { to: '/dispatcher/map',            label: 'Карта',    icon: Map },
   { to: '/dispatcher/trips',          label: 'Курсове',  icon: Truck },
+  { to: '/dispatcher/optimize',       label: 'Оптимизация', icon: Sparkles },
   { to: '/dispatcher/disposal-sites', label: 'Депа',     icon: Factory },
   { to: '/dispatcher/drivers',        label: 'Шофьори',  icon: UserCheck },
   { to: '/dispatcher/clients',        label: 'Клиенти',  icon: Users },
@@ -280,7 +279,9 @@ export default function DispatcherApp() {
           <Routes>
             <Route index element={<DashboardBI />} />
             <Route path="orders" element={<OrdersManager />} />
-            <Route path="map" element={<LiveMap />} />
+            <Route path="map" element={<FleetView />} />
+            <Route path="map-classic" element={<LiveMap />} />
+            <Route path="optimize" element={<RouteOptimizer />} />
             <Route path="trips" element={<Trips />} />
             <Route path="drivers" element={<Drivers />} />
             <Route path="clients" element={<Clients />} />

@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #070b08;
+  --pine: #0d130e;
+  --brand: #25c06a;
+  --mint: #7df0a8;
+  --hairline: rgba(233, 240, 234, 0.08);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-ink text-paper font-body antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--brand);
+  color: var(--ink);
+}
+
+/* product window frame */
+.frame {
+  @apply overflow-hidden rounded-xl border border-white/10 bg-pine;
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+}
+.frame-bar {
+  @apply flex items-center gap-2 border-b border-white/[0.07] bg-white/[0.03] px-4 py-2.5;
+}
+.frame-dot {
+  @apply h-2.5 w-2.5 rounded-full bg-white/10;
+}
+
+/* hairline feature row */
+.row-line {
+  border-top: 1px solid var(--hairline);
+}
+
+/* marquee ticker */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  animation: marquee 36s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* slim phone frame for the driver app */
+.phone {
+  border-radius: 2rem;
+  border: 6px solid #131a15;
+  outline: 1px solid rgba(233, 240, 234, 0.12);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+}
